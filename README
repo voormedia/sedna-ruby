@@ -10,7 +10,7 @@ facilities include W3C XQuery implementation, tight integration of XQuery with
 full-text search facilities and a node-level update language.
 
 For more information about the \Sedna XML database system, see the project page
-at http://modis.ispras.ru/sedna.
+at http://modis.ispras.ru/sedna
 
 === About the client library
 
