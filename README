@@ -14,7 +14,7 @@ at http://modis.ispras.ru/sedna.
 
 === About the client library
 
-Author: Rolf Timmermans (r.timmermans at voormedia.com)
+Author: Rolf Timmermans (r.timmermans <i>at</i> voormedia.com)
 
 Copyright 2008 Voormedia B.V.
 
@@ -32,8 +32,9 @@ limitations under the License.
 
 === Current version
 
-The current version of this library is 0.1.0. For a complete overview all
-recent and previous changes, see the CHANGES.
+The current version of this library is 0.1.0. This version is a <b>development
+preview</b>. The API may change significantly between minor versions.
+For a complete overview all recent and previous changes, see CHANGES.
 
 === Requirements
 
