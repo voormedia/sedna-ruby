@@ -320,7 +320,7 @@ static VALUE cSedna_s_connect(VALUE klass, VALUE options)
  *
  * For more information about \Sedna's database query syntax and support, see the
  * <i>Database language</i> section of the official documentation of the
- * \Sedna project at http://modis.ispras.ru/sedna/progguide/ProgGuidese2.html.
+ * \Sedna project at http://modis.ispras.ru/sedna/progguide/ProgGuidese2.html
  */
 static VALUE cSedna_execute(VALUE self, VALUE query)
 {
