@@ -1,0 +1,9 @@
+=== 0.1.0
+
+* Released on the December 8th, 2008.
+* Development preview (alpha) release.
+* Simple, high-level API.
+* Tested with Ruby 1.8.7 and Ruby 1.9.0.
+* Support for version 3.1 of the \Sedna XML DBMS.
+* Support for regular queries and transactions.
+* Support for auto-commit mode.

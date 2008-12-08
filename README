@@ -1,0 +1,85 @@
+= \Sedna XML database client library
+
+This library provides a Ruby client for <i>Sedna</i>, an open-source, native XML
+database system. The client is a Ruby extension that uses the official C
+driver that is shipped as part of the S<i></i>edna distribution.
+
+\Sedna provides a full range of core database services -- persistent storage,
+ACID transactions, security, indices, hot backup. Flexible XML processing
+facilities include W3C XQuery implementation, tight integration of XQuery with
+full-text search facilities and a node-level update language.
+
+For more information about the \Sedna XML database system, see the project page
+at http://modis.ispras.ru/sedna.
+
+=== About the client library
+
+Author: Rolf Timmermans (r.timmermans at voormedia.com)
+
+Copyright 2008 Voormedia B.V.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=== Current version
+
+The current version of this library is 0.1.0. For a complete overview all
+recent and previous changes, see the CHANGES.
+
+=== Requirements
+
+Before installing the \Sedna client library, make sure you have the library and
+header files of the C driver. They are shipped and installed as part of the binary
+distribution of \Sedna. When installing, choose either <tt>/usr/local/sedna</tt> or
+<tt>/opt/sedna</tt> as target locations.
+
+=== Installation
+
+After installing the \Sedna C driver (see above), simply install the Ruby client
+library as a rubygem.
+
+  % gem install sedna
+
+If the library or header files of the S<i></i>edna C driver are located at non-default
+locations, you can specify these locations by adding the <tt>--with-sedna-lib</tt>
+or <tt>--with-sedna-include</tt> options when installing.
+
+  % gem install sedna -- --with-sedna-lib=/path/to/sedna/lib --with-sedna-include=/path/to/sedna/include
+
+=== Usage
+
+After installation of the gem, +require+ the sedna library in order to start
+using it.
+
+  require 'rubygems'
+  require 'sedna'
+
+To start querying a database, create a new connection with the Sedna.connect
+method. When a block is given, the Sedna connection object will be returned
+which can be used to execute database statements.
+
+  connection_details = {
+    :database => "my_db",
+    :host => "localhost",
+    :username => "SYSTEM",
+    :password => "MANAGER",
+  }
+  Sedna.connect(connection_details) do |sedna|
+    # Start querying the database.
+    sedna.execute("create document 'mydoc'")                                  #=> nil
+    sedna.execute("update insert <msg>Hello world!</msg> into doc('mydoc')")  #=> nil
+    sedna.execute("doc('mydoc')/msg/text()")                                  #=> ["Hello world!"]
+    # The connection is closed automatically for us.
+  end
+
+See the documentation of the Sedna class -- the methods Sedna.connect and
+Sedna#execute in particular -- for more details.
