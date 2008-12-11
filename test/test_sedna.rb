@@ -36,7 +36,9 @@ class TestSedna < Test::Unit::TestCase
   
   def teardown
   end
-  
+
+  # Faux test that just checks if we can connect, otherwise the test
+  # suite is aborted.
   def test_aaa_connection
     port = 5050
     begin
