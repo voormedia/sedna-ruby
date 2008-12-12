@@ -39,5 +39,5 @@ spec = Gem::Specification.new do |s|
   s.extra_rdoc_files = FileList["[A-Z][A-Z]*", "ext/**/*.c"].to_a
   s.rdoc_options << "--title" << "Sedna XML DBMS client library for Ruby" << "--main" << "README"
   
-  s.test_files = FileList["test/**/test_*.rb"].to_a
+  s.test_files = FileList["test/**/*_test.rb"].to_a
 end
