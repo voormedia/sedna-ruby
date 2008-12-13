@@ -1,7 +1,5 @@
-*.gem
-*.tar.gz
-*.zip
 *.log
 ext/*.o
 ext/*.so
 ext/Makefile
+pkg/

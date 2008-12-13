@@ -17,9 +17,23 @@
 
 # This file defines how to build a Rubygem for the Sedna client library.
 
-require 'rake'
 
-spec = Gem::Specification.new do |s|
+#--
+# Copyright 2008 Voormedia B.V.
+#++
+
+require 'rubygems'
+require 'rake'
+require 'rake/testtask'
+require 'rake/gempackagetask'
+#require 'rake/rdoctask'
+
+Rake::TestTask.new do |t|
+  t.test_files = FileList["test/*_test.rb"]
+  t.verbose = true
+end
+
+gem_spec = Gem::Specification.new do |s|
   s.name = "sedna"
   s.version = "0.1.1"
 
@@ -40,4 +54,10 @@ spec = Gem::Specification.new do |s|
   s.rdoc_options << "--title" << "Sedna XML DBMS client library for Ruby" << "--main" << "README"
   
   s.test_files = FileList["test/**/*_test.rb"].to_a
+end
+
+Rake::GemPackageTask.new gem_spec do |p|
+  p.gem_spec = gem_spec
+  p.need_tar_gz = true
+  p.need_zip = true
 end
