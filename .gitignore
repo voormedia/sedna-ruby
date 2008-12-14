@@ -3,3 +3,4 @@ ext/*.o
 ext/*.so
 ext/Makefile
 pkg/
+doc/
