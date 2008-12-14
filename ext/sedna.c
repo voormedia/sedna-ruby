@@ -356,7 +356,12 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
  *
  * ==== Examples
  *
+ * Create a new document and retrieve it.
  *
+ *   sedna.load_document "<my_document>Hello world!</my_document>", "my_doc"       
+ *     #=> nil
+ *   sedna.execute "doc('my_doc')"
+ *     #=> ["<?xml version=\"1.0\" standalone=\"yes\"?><my_document>Hello world!</my_document>"]
  */
 static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 {
