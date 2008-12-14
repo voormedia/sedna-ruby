@@ -24,7 +24,7 @@
 #include "libsedna.h"
 
 // Size of the read buffer.
-#define BUF_LEN 8192
+#define RESULT_BUF_LEN 8192
 
 // Use macros to fool RDoc and hide some of our methods/aliases.
 #define rb_define_undocumented_alias(kl, new, old) rb_define_alias(kl, new, old)
@@ -114,10 +114,10 @@ static void sedna_mark(SC *conn)
 static VALUE sedna_read(SC *conn, int strip_n)
 {
 	int bytes_read = 0;
-	char buffer[BUF_LEN];
+	char buffer[RESULT_BUF_LEN];
 	VALUE str = rb_str_buf_new(0);
 	do {
-		bytes_read = SEgetData(conn, buffer, BUF_LEN - 1);
+		bytes_read = SEgetData(conn, buffer, RESULT_BUF_LEN - 1);
 		if(bytes_read == SEDNA_ERROR) {
 			sedna_err(conn, SEDNA_ERROR);
 		} else {
@@ -358,8 +358,8 @@ static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 	VALUE document, doc_name, col_name;
 	char *col;
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
-	if(rb_scan_args(argc, argv, "21", &document, &doc_name, &col_name) == 3) col = STR2CSTR(col_name);
-	  else col = NULL;
+	rb_scan_args(argc, argv, "21", &document, &doc_name, &col_name);
+	if(NIL_P(col_name)) col = NULL; else col = STR2CSTR(col_name);
 	res = SEloadData(conn, STR2CSTR(document), RSTRING_LEN(document), STR2CSTR(doc_name), col);
 	if(res != SEDNA_DATA_CHUNK_LOADED) sedna_err(conn, res);
 	res = SEendLoadData(conn);

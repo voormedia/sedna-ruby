@@ -254,6 +254,18 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
+  def test_load_document_should_create_standalone_document_if_collection_is_nil
+    Sedna.connect @connection do |sedna|
+      name = "test_load_document_should_create_standalone_document_if_collection_is_unspecified"
+      doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
+
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+      sedna.load_document doc, name, nil
+      assert_equal doc, sedna.execute("doc('#{name}')").first
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+    end
+  end
+  
   def test_load_document_should_return_nil_if_standalone_document_loaded_successfully
     Sedna.connect @connection do |sedna|
       name = "test_load_document_should_return_nil_if_document_loaded_successfully"
