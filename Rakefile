@@ -28,6 +28,11 @@ require 'rake/testtask'
 require 'rake/gempackagetask'
 #require 'rake/rdoctask'
 
+desc "Build the Ruby extension"
+task :build do
+  sh "cd ext/ && ruby extconf.rb && make"
+end
+
 Rake::TestTask.new do |t|
   t.test_files = FileList["test/*_test.rb"]
   t.verbose = true
