@@ -356,17 +356,17 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
  *
  * ==== Examples
  *
- * Create a new document and retrieve it.
+ * Create a new standalone document and retrieve it.
  *
  *   sedna.load_document "<my_document>Hello world!</my_document>", "my_doc"       
  *     #=> nil
  *   sedna.execute "doc('my_doc')"
  *     #=> ["<?xml version=\"1.0\" standalone=\"yes\"?><my_document>Hello world!</my_document>"]
  *
- * Open a file and import its contents into a new document.
+ * Open a file and import its contents into a new document in an existing collection.
  *
  *   File.open "document.xml" do |file|
- *     sedna.load_document file, "my_doc"
+ *     sedna.load_document file, "my_doc", "my_col"
  *   end
  */
 static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
@@ -436,14 +436,14 @@ static VALUE cSedna_autocommit_get(VALUE self)
  * ==== Examples
  *
  *   sedna.transaction do
- *     count = sedna.execute "count(collection('mycol')/items)"  #=> 0
- *     sedna.execute "update insert <total>#{count}</total> into doc('mydoc')"
+ *     count = sedna.execute "count(collection('my_col')/items)"  #=> 0
+ *     sedna.execute "update insert <total>#{count}</total> into doc('my_doc')"
  *     # ...
  *   end
  *   # Transaction is committed.
  *
  *   sedna.transaction do
- *     count = sedna.execute "count(collection('mycol')/items)"  #=> 0
+ *     count = sedna.execute "count(collection('my_col')/items)"  #=> 0
  *     throw :no_items if count == 0
  *     # ... never get here
  *   end
