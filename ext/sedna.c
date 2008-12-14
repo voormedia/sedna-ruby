@@ -25,6 +25,7 @@
 
 // Size of the read buffer.
 #define RESULT_BUF_LEN 8192
+#define LOAD_BUF_LEN 8192
 
 // Use macros to fool RDoc and hide some of our methods/aliases.
 #define rb_define_undocumented_alias(kl, new, old) rb_define_alias(kl, new, old)
@@ -346,24 +347,40 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
  *
  * Creates a new document named +doc_name+ in collection +col_name+, or as a
  * stand-alone document if +col_name+ is +nil+. The string +document+ is
- * subsequently loaded into the newly created document.
+ * subsequently loaded into the newly created document. As an alternative, the
+ * argument +document+ may be an IO object (or any descendant, such as a File
+ * object) on which the +read+ method is invoked.
  *
  * If the document was successfully loaded, this method returns +nil+. If an
  * error occurs, a Sedna::Exception is raised.
+ *
+ * ==== Examples
+ *
+ *
  */
 static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 {
-	int res;
+	int res = 0;
 	SC *conn = sedna_struct(self);
-	VALUE document, doc_name, col_name;
-	char *col;
+	VALUE document, doc_name, col_name, buf;
+	char *doc_name_c, *col_name_c;
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
-	rb_scan_args(argc, argv, "21", &document, &doc_name, &col_name);
-	if(NIL_P(col_name)) col = NULL; else col = STR2CSTR(col_name);
-	res = SEloadData(conn, STR2CSTR(document), RSTRING_LEN(document), STR2CSTR(doc_name), col);
-	if(res != SEDNA_DATA_CHUNK_LOADED) sedna_err(conn, res);
+	rb_scan_args(argc, argv, "21", &document, &doc_name, &col_name); // 2 mandatory args, 1 optional.
+	doc_name_c = STR2CSTR(doc_name);
+	col_name_c = NIL_P(col_name) ? NULL : STR2CSTR(col_name);
+	if(TYPE(document) == T_FILE) {
+		while(!NIL_P(buf = rb_funcall(document, rb_intern("read"), 1, INT2NUM(LOAD_BUF_LEN)))) {
+			res = SEloadData(conn, STR2CSTR(buf), RSTRING_LEN(buf), doc_name_c, col_name_c);
+			verify_res(SEDNA_DATA_CHUNK_LOADED, res, conn);
+		}
+		if(res == 0) rb_raise(cSednaException, "Document is empty.");
+	} else {
+		if(RSTRING_LEN(document) == 0) rb_raise(cSednaException, "Document is empty.");
+		res = SEloadData(conn, STR2CSTR(document), RSTRING_LEN(document), doc_name_c, col_name_c);
+		verify_res(SEDNA_DATA_CHUNK_LOADED, res, conn);
+	}
 	res = SEendLoadData(conn);
-	if(res != SEDNA_BULK_LOAD_SUCCEEDED) sedna_err(conn, res);
+	verify_res(SEDNA_BULK_LOAD_SUCCEEDED, res, conn);
 	return Qnil;
 }
 

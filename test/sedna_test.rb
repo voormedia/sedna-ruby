@@ -132,14 +132,14 @@ class SednaTest < Test::Unit::TestCase
   end
 
   # TODO: Fix the following strangely-failing test case.
-  #def test_zzz_connect_should_not_fail_to_close_connection_when_require_called_inside_block
-  #  # Squash a strange bug -- only appears to work if this test is run last and nothing else fails.
-  #  assert_nothing_raised do
-  #    Sedna.connect @connection do |sedna|
-  #      require 'pp'
-  #    end
-  #  end
-  #end
+  def test_zzz_connect_should_not_fail_to_close_connection_when_require_called_inside_block
+    # Squash a strange bug -- only appears to work if this test is run last and nothing else fails.
+    assert_nothing_raised do
+      Sedna.connect @connection do |sedna|
+        require 'pp'
+      end
+    end
+  end
   
   # Test sedna.close.
   def test_close_should_return_nil
@@ -241,7 +241,7 @@ class SednaTest < Test::Unit::TestCase
       sedna.execute "drop collection '#{col}'" rescue Sedna::Exception
     end
   end
-  
+
   def test_load_document_should_create_standalone_document_if_collection_is_unspecified
     Sedna.connect @connection do |sedna|
       name = "test_load_document_should_create_standalone_document_if_collection_is_unspecified"
@@ -298,6 +298,52 @@ class SednaTest < Test::Unit::TestCase
       assert_raises Sedna::ConnectionError do
         sedna.load_document "<doc/>", "some_doc"
       end
+    end
+  end
+
+  def test_load_document_should_create_document_if_given_document_is_io_object
+    Sedna.connect @connection do |sedna|
+      name = "test_load_document_should_create_document_if_given_document_is_io_object"
+      doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>" << ("\n <some_very_often_repeated_node/>" * 800) << "\n</document>"
+      p_out, p_in = IO.pipe
+      p_in.write doc
+      p_in.close
+
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+      sedna.load_document p_out, name, nil
+      assert_equal doc.length, sedna.execute("doc('#{name}')").first.length
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+    end
+  end
+
+  def test_load_document_should_raise_sedna_exception_if_given_document_is_empty_io_object
+    Sedna.connect @connection do |sedna|
+      name = "test_load_document_should_raise_sedna_exception_if_given_document_is_empty_io_object"
+      p_out, p_in = IO.pipe
+      p_in.close
+
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+      e = nil
+      begin
+        sedna.load_document p_out, name, nil
+      rescue Sedna::Exception => e
+      end
+      assert_equal "Document is empty.", e.message
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+    end
+  end
+
+  def test_load_document_should_raise_sedna_exception_if_given_document_is_empty_string
+    Sedna.connect @connection do |sedna|
+      name = "test_load_document_should_raise_sedna_exception_if_given_document_is_empty_string"
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+      e = nil
+      begin
+        sedna.load_document "", name, nil
+      rescue Sedna::Exception => e
+      end
+      assert_equal "Document is empty.", e.message
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
     end
   end
   
