@@ -349,7 +349,7 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
  * stand-alone document if +col_name+ is +nil+. The string +document+ is
  * subsequently loaded into the newly created document. As an alternative, the
  * argument +document+ may be an IO object (or any descendant, such as a File
- * object) on which the +read+ method is invoked.
+ * object).
  *
  * If the document was successfully loaded, this method returns +nil+. If an
  * error occurs, a Sedna::Exception is raised.
@@ -362,6 +362,12 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
  *     #=> nil
  *   sedna.execute "doc('my_doc')"
  *     #=> ["<?xml version=\"1.0\" standalone=\"yes\"?><my_document>Hello world!</my_document>"]
+ *
+ * Open a file and import its contents into a new document.
+ *
+ *   File.open "document.xml" do |file|
+ *     sedna.load_document file, "my_doc"
+ *   end
  */
 static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 {
