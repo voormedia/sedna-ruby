@@ -23,10 +23,14 @@
 #++
 
 require 'rubygems'
+require 'rdoc' # Use latest RDoc version.
 require 'rake'
 require 'rake/testtask'
 require 'rake/gempackagetask'
-#require 'rake/rdoctask'
+require 'rake/rdoctask'
+
+RDOC_TITLE = "Sedna XML DBMS client library for Ruby"
+RDOC_FILES = FileList["[A-Z][A-Z]*", "ext/**/*.c"].to_a
 
 desc "Build the Ruby extension"
 task :build do
@@ -55,8 +59,8 @@ gem_spec = Gem::Specification.new do |s|
   s.require_path = "lib"
 
   s.has_rdoc = true
-  s.extra_rdoc_files = FileList["[A-Z][A-Z]*", "ext/**/*.c"].to_a
-  s.rdoc_options << "--title" << "Sedna XML DBMS client library for Ruby" << "--main" << "README"
+  s.extra_rdoc_files = RDOC_FILES
+  s.rdoc_options << "--title" << RDOC_TITLE << "--main" << "README"
   
   s.test_files = FileList["test/**/*_test.rb"].to_a
 end
@@ -66,3 +70,9 @@ Rake::GemPackageTask.new gem_spec do |p|
   p.need_tar_gz = true
   p.need_zip = true
 end
+
+Rake::RDocTask.new { |rdoc|
+  rdoc.rdoc_dir = 'doc'
+  rdoc.title = RDOC_TITLE
+  rdoc.rdoc_files.include *RDOC_FILES
+}
