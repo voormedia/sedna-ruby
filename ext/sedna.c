@@ -297,7 +297,7 @@ static VALUE cSedna_s_connect(VALUE klass, VALUE options)
  *   sedna.execute(query) -> array or nil
  *   sedna.query(query) -> array or nil
  *
- * Execute the given +query+ against a \Sedna database. Returns an array if the
+ * Executes the given +query+ against a \Sedna database. Returns an array if the
  * given query is a select query. The elements of the array are strings that
  * correspond to each result in the result set. If the query is an update query
  * or a (bulk) load query, +nil+ is returned. When attempting to \execute a
@@ -340,6 +340,33 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 	}
 }
 
+/*
+ * call-seq:
+ *   sedna.load_document(document, doc_name, col_name = nil) -> nil
+ *
+ * Creates a new document named +doc_name+ in collection +col_name+, or as a
+ * stand-alone document if +col_name+ is +nil+. The string +document+ is
+ * subsequently loaded into the newly created document.
+ *
+ * If the document was successfully loaded, this method returns +nil+. If an
+ * error occurs, a Sedna::Exception is raised.
+ */
+static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
+{
+	int res;
+	SC *conn = sedna_struct(self);
+	VALUE document, doc_name, col_name;
+	char *col;
+	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
+	if(rb_scan_args(argc, argv, "21", &document, &doc_name, &col_name) == 3) col = STR2CSTR(col_name);
+	  else col = NULL;
+	res = SEloadData(conn, STR2CSTR(document), RSTRING_LEN(document), STR2CSTR(doc_name), col);
+	if(res != SEDNA_DATA_CHUNK_LOADED) sedna_err(conn, res);
+	res = SEendLoadData(conn);
+	if(res != SEDNA_BULK_LOAD_SUCCEEDED) sedna_err(conn, res);
+	return Qnil;
+}
+
 /* :nodoc:
  *
  * Turn autocommit on or off.
@@ -364,7 +391,7 @@ static VALUE cSedna_autocommit_get(VALUE self)
 
 /*
  * call-seq:
- *   sedna.transaction { ... } -> true
+ *   sedna.transaction { ... } -> nil
  *
  * Wraps the given block in a \transaction. If the block runs
  * completely, the \transaction is committed. If the stack is unwinded
@@ -373,7 +400,7 @@ static VALUE cSedna_autocommit_get(VALUE self)
  * invoking +throw+. Note that Exceptions will not be rescued -- they will be
  * re-raised after rolling back the \transaction.
  *
- * This method returns +true+ if the \transaction is successfully committed
+ * This method returns +nil+ if the \transaction is successfully committed
  * to the database. If the given block completes successfully, but the
  * \transaction fails to be committed, a Sedna::TransactionError will
  * be raised. 
@@ -412,7 +439,7 @@ static VALUE cSedna_transaction(VALUE self)
 		switch_sedna_autocommit(conn, rb_iv_get(self, "@autocommit"));
 		rb_jump_tag(status); // Re-raise exception.
 	}
-	return Qtrue;
+	return Qnil;
 }
 
 void Init_sedna()
@@ -440,6 +467,7 @@ void Init_sedna()
 	rb_define_singleton_method(cSedna, "connect", cSedna_s_connect, 1);
 	rb_define_method(cSedna, "initialize", cSedna_initialize, 1);
 	rb_define_method(cSedna, "execute", cSedna_execute, 1);
+	rb_define_method(cSedna, "load_document", cSedna_load_document, -1);
 	rb_define_undocumented_alias(cSedna, "query", "execute");
 	rb_define_method(cSedna, "close", cSedna_close, 0);
 

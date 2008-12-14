@@ -225,6 +225,69 @@ class SednaTest < Test::Unit::TestCase
       assert_equal ["<test/>"], sedna.query("<test/>")
     end
   end
+
+  # Test sedna.load_document.
+  def test_load_document_should_create_document_in_given_collection
+    Sedna.connect @connection do |sedna|
+      name = "test_load_document_should_create_document_in_given_collection"
+      col = "test_collection"
+      doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
+
+      sedna.execute "create collection '#{col}'" rescue Sedna::Exception
+      sedna.execute "drop document '#{name}' in collection '#{col}'" rescue Sedna::Exception
+      sedna.load_document doc, name, col
+      assert_equal doc, sedna.execute("doc('#{name}', '#{col}')").first
+      sedna.execute "drop document '#{name}' in collection '#{col}'" rescue Sedna::Exception
+      sedna.execute "drop collection '#{col}'" rescue Sedna::Exception
+    end
+  end
+  
+  def test_load_document_should_create_standalone_document_if_collection_is_unspecified
+    Sedna.connect @connection do |sedna|
+      name = "test_load_document_should_create_standalone_document_if_collection_is_unspecified"
+      doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
+
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+      sedna.load_document doc, name
+      assert_equal doc, sedna.execute("doc('#{name}')").first
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+    end
+  end
+  
+  def test_load_document_should_return_nil_if_standalone_document_loaded_successfully
+    Sedna.connect @connection do |sedna|
+      name = "test_load_document_should_return_nil_if_document_loaded_successfully"
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+      assert_nil sedna.load_document("<document><node/></document>", name)
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+    end
+  end
+
+  def test_load_document_should_fail_if_autocommit_is_false
+    Sedna.connect @connection do |sedna|
+      sedna.autocommit = false
+      assert_raises Sedna::Exception do
+        sedna.load_document "<test/>", "some_doc"
+      end
+    end
+  end
+  
+  def test_load_document_should_fail_with_sedna_exception_for_invalid_documents
+    Sedna.connect @connection do |sedna|
+      assert_raises Sedna::Exception do
+        sedna.load_document "<doc/> this is an invalid document", "some_doc"
+      end
+    end
+  end
+  
+  def test_load_document_should_fail_with_sedna_connection_error_if_connection_is_closed
+    Sedna.connect @connection do |sedna|
+      sedna.close
+      assert_raises Sedna::ConnectionError do
+        sedna.load_document "<doc/>", "some_doc"
+      end
+    end
+  end
   
   # Test sedna.autocommit= / sedna.autocommit.
   def test_autocommit_should_return_true_by_default
@@ -280,9 +343,9 @@ class SednaTest < Test::Unit::TestCase
   end
   
   # Test sedna.transaction.
-  def test_transaction_should_return_true_if_committed
+  def test_transaction_should_return_nil_if_committed
     Sedna.connect @connection do |sedna|
-      assert_equal true, sedna.transaction(){}
+      assert_nil sedna.transaction(){}
     end
   end
   
