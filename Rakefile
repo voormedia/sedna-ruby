@@ -40,7 +40,7 @@ end
 
 gem_spec = Gem::Specification.new do |s|
   s.name = "sedna"
-  s.version = "0.1.1"
+  s.version = "0.2.0"
 
   s.summary = "Sedna XML DBMS client library."
   s.description = %{Ruby extension that provides a client library for the Sedna XML DBMS, making use of the official C driver of the Sedna project.}
