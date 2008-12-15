@@ -17,11 +17,6 @@
 
 # This file defines how to build a Rubygem for the Sedna client library.
 
-
-#--
-# Copyright 2008 Voormedia B.V.
-#++
-
 require 'rubygems'
 require 'rdoc' # Use latest RDoc version.
 require 'rake'
