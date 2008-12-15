@@ -1,6 +1,12 @@
+=== 0.2.0
+
+* Released on December 15th, 2008.
+* Added support for importing documents from a string or file (Sedna#load_document).
+* Fixed garbage collection error for unsuccessful connections.
+
 === 0.1.0
 
-* Released on the December 8th, 2008.
+* Released on December 8th, 2008.
 * Development preview (alpha) release.
 * Simple, high-level API.
 * Tested with Ruby 1.8.7 and Ruby 1.9.0.
