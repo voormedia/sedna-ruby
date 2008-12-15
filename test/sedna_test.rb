@@ -130,16 +130,6 @@ class SednaTest < Test::Unit::TestCase
       end
     end
   end
-
-  # TODO: Fix the following strangely-failing test case.
-  def test_zzz_connect_should_not_fail_to_close_connection_when_require_called_inside_block
-    # Squash a strange bug -- only appears to work if this test is run last and nothing else fails.
-    assert_nothing_raised do
-      Sedna.connect @connection do |sedna|
-        require 'pp'
-      end
-    end
-  end
   
   # Test sedna.close.
   def test_close_should_return_nil
@@ -289,6 +279,17 @@ class SednaTest < Test::Unit::TestCase
       assert_raises Sedna::Exception do
         sedna.load_document "<doc/> this is an invalid document", "some_doc"
       end
+    end
+  end
+  
+  def test_load_document_should_raise_exception_with_complete_details_for_invalid_documents
+    Sedna.connect @connection do |sedna|
+      e = nil
+      begin
+        sedna.load_document "<doc/> junk here", "some_doc"
+      rescue Sedna::Exception => e
+      end
+      assert_match /junk after document element/, e.message
     end
   end
   

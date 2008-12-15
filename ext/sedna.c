@@ -84,7 +84,7 @@ static void sedna_err(SC *conn, int res)
 	}
 	if(details != NULL) {
 		details += 10;
-		if((p = strstr(details, "\n")) != NULL) strncpy(p, "\0", 1);
+		while((p = strstr(details, "\n")) != NULL) strncpy(p, " ", 1);
 		rb_raise(exception, "%s (%s)", err, details);
 	} else {
 		rb_raise(exception, "%s", err);
@@ -216,7 +216,16 @@ static VALUE cSedna_initialize(VALUE self, VALUE options)
 	if(NIL_P(pw_v = rb_hash_aref(options, pw_k))) pw = "MANAGER"; else pw = STR2CSTR(pw_v);
 
 	res = SEconnect(conn, host, db, user, pw);
-	verify_res(SEDNA_SESSION_OPEN, res, conn);
+	if(res != SEDNA_SESSION_OPEN) {
+		// We have to set the connection status to closed explicitly here,
+		// because the GC routine sedna_free() will test for this status, but
+		// the socket is already closed by SEconnect(). If we do not change the
+		// status, sedna_free() will attempt to close the connection again by
+		// calling SEclose(), which will definitely lead to unpredictable
+		// results.
+		conn->isConnectionOk = SEDNA_CONNECTION_CLOSED;
+		sedna_err(conn, res);
+	}
 
 	// Initialize @autocommit to true (default argument).
 	rb_iv_set(self, "@autocommit", Qtrue);
