@@ -63,19 +63,19 @@ class SednaTest < Test::Unit::TestCase
 
   def test_connect_should_raise_exception_when_host_not_found
     assert_raises Sedna::ConnectionError do
-      Sedna.connect @connection.merge(:host => "non-existant-host")
+      Sedna.connect @connection.merge(:host => "non-existent-host")
     end
   end
 
   def test_connect_should_raise_exception_when_credentials_are_incorrect
     assert_raises Sedna::AuthenticationError do
-      Sedna.connect @connection.merge(:username => "non-existant-user")
+      Sedna.connect @connection.merge(:username => "non-existent-user")
     end
   end
   
   def test_connect_should_return_nil_on_error
     begin
-      sedna = Sedna.connect @connection.merge(:username => "non-existant-user")
+      sedna = Sedna.connect @connection.merge(:username => "non-existent-user")
     rescue
     end
     assert_nil sedna
