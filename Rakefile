@@ -29,8 +29,19 @@ RDOC_FILES = FileList["[A-Z][A-Z]*", "ext/**/*.c"].to_a
 
 desc "Build the Ruby extension"
 task :build do
-  sh "cd ext/ && ruby extconf.rb && make"
+  Dir.chdir "ext"
+  ruby "extconf.rb"
+  sh "make"
 end
+
+desc "Remove build products"
+task :clobber_build do
+  sh "rm ext/*.{so,o,log}"
+  sh "rm ext/Makefile"
+end
+
+desc "Force a rebuild of the Ruby extension"
+task :rebuild => [:clobber_build, :build]
 
 Rake::TestTask.new do |t|
   t.test_files = FileList["test/*_test.rb"]
