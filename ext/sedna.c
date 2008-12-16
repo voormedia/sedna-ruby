@@ -38,7 +38,6 @@
 #define sedna_autocommit_off(conn) sedna_autocommit(conn, SEDNA_AUTOCOMMIT_OFF)
 #define switch_sedna_autocommit(conn, val) if(val) sedna_autocommit_on(conn); else sedna_autocommit_off(conn)
 
-
 // Our classes.
 static VALUE cSedna;
 //static VALUE cSednaSet; //Unused so far.
@@ -50,6 +49,20 @@ static VALUE cSednaTrnError;
 // Define a shorthand for the common SednaConnection structure.
 typedef struct SednaConnection SC;
 
+#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+
+#ifdef RB_UBF_DFL
+#define DEFAULT_UBF RB_UBF_DFL
+#elif RUBY_UBF_IO
+#define DEFAULT_UBF RUBY_UBF_IO
+#endif
+struct SednaQuery {
+	void *conn;
+	void *query;
+};
+typedef struct SednaQuery SQ;
+
+#endif
 
 // Test the last error message for conn, and raise an exception if there is one.
 // The type of the exception is based on the result of the function that was
@@ -110,6 +123,14 @@ static void sedna_free(SC *conn)
 // Mark any references to other objects for Ruby GC (if any).
 static void sedna_mark(SC *conn)
 { /* Unused. */ }
+
+#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+// Dereference execution of query to this function for non-blocking goodness.
+static int sedna_blocking_execute(SQ *q)
+{
+	return SEexecute(q->conn, q->query);
+}
+#endif
 
 // Read one record completely and return it as a Ruby String object.
 static VALUE sedna_read(SC *conn, int strip_n)
@@ -337,7 +358,17 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 	int res;
 	SC *conn = sedna_struct(self);
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
+#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+	// Non-blocking variant for >= 1.9.
+	SQ q;
+	q.conn = conn;
+	q.query = STR2CSTR(query);
+	// Possible to use SEclose() rahter than NULL?
+	res = rb_thread_blocking_region((void*)sedna_blocking_execute, &q, DEFAULT_UBF, NULL);
+#else
+	// Blocking variant for < 1.9.
 	res = SEexecute(conn, STR2CSTR(query));
+#endif
 	switch(res) {
 		case SEDNA_QUERY_SUCCEEDED:
 			return sedna_get_results(conn);

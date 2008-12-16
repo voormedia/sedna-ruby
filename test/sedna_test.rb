@@ -209,6 +209,39 @@ class SednaTest < Test::Unit::TestCase
       sedna.execute("drop document '#{name}'") rescue Sedna::Exception
     end
   end
+
+  def test_execute_should_block_for_ruby_18_and_not_block_for_ruby_19
+    n = 5 # Amount of threads to be run. Increase for more accuracy.
+    i = 10000 # Times to loop in query. Increase for more accuracy.
+    threads = []
+    start_times = {}
+    end_times = {}
+    n.times do |number|
+      threads << Thread.new do
+        Sedna.connect @connection do |sedna|
+          start_times[number] = Time.now
+          sedna.execute "for $x in 1 to #{i} where $x = 1 return <node/>"
+          end_times[number] = Time.now
+        end
+      end
+    end
+    threads.each do |thread| thread.join end
+    # Count the amount of time that is overlapped between threads. If the execute
+    # method blocks, there should be hardly any overlap.
+    time_diff = 0
+    (n - 1).times do |number|
+      time_diff += start_times[number + 1] - end_times[number]
+    end
+    if RUBY_VERSION < "1.9"
+      # Blocking behaviour. The start/end times of two threads should not overlap.
+      assert time_diff > 0
+    else
+      # We have concurrency, the execute method in the threads should have been
+      # run in parallel and there should be considerable overlap in the start/end
+      # times of the executed threads.
+      assert time_diff < 0
+    end
+  end
   
   def test_query_should_be_alias_of_execute
     Sedna.connect @connection do |sedna|

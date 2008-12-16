@@ -68,6 +68,6 @@ passing the -fPIC option to gcc.
   end
 end
 
-$CPPFLAGS << "-DHAVE_TBR" if have_func("rb_thread_blocking_region")
+have_func("rb_thread_blocking_region")
 
 create_makefile "sedna"
