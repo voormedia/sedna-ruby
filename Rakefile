@@ -36,8 +36,8 @@ end
 
 desc "Remove build products"
 task :clobber_build do
-  sh "rm ext/*.{so,o,log}"
-  sh "rm ext/Makefile"
+  sh "rm -f ext/*.{so,o,log}"
+  sh "rm -f ext/Makefile"
 end
 
 desc "Force a rebuild of the Ruby extension"
