@@ -38,6 +38,11 @@
 #define sedna_autocommit_off(conn) sedna_autocommit(conn, SEDNA_AUTOCOMMIT_OFF)
 #define switch_sedna_autocommit(conn, val) if(val) sedna_autocommit_on(conn); else sedna_autocommit_off(conn)
 
+// Define the protocol version number as string.
+#define PROTO_STRINGIFY(s) #s
+#define PROTO_TO_STRING(s) PROTO_STRINGIFY(s)
+#define PROTOCOL_VERSION PROTO_TO_STRING(SE_CURRENT_SOCKET_PROTOCOL_VERSION_MAJOR) "." PROTO_TO_STRING(SE_CURRENT_SOCKET_PROTOCOL_VERSION_MINOR)
+
 // Our classes.
 static VALUE cSedna;
 //static VALUE cSednaSet; //Unused so far.
@@ -323,6 +328,28 @@ static VALUE cSedna_s_connect(VALUE klass, VALUE options)
 	}
 }
 
+/* :nodoc:
+ *
+ * Undocument class method that returns the (protocol) verion.
+ */
+static VALUE cSedna_s_version(VALUE klass)
+{
+	return rb_str_new2(PROTOCOL_VERSION);
+}
+
+/* :nodoc:
+ *
+ * Undocument class method that returns if the execute method is blocking.
+ */
+static VALUE cSedna_s_blocking(VALUE klass)
+{
+#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+	return Qfalse;
+#else
+	return Qtrue;
+#endif
+}
+
 /*
  * call-seq:
  *   sedna.execute(query) -> array or nil
@@ -533,6 +560,8 @@ void Init_sedna()
 	cSedna = rb_define_class("Sedna", rb_cObject);
 	rb_define_alloc_func(cSedna, cSedna_s_new);
 	rb_define_singleton_method(cSedna, "connect", cSedna_s_connect, 1);
+	rb_define_singleton_method(cSedna, "version", cSedna_s_version, 0);
+	rb_define_singleton_method(cSedna, "blocking?", cSedna_s_blocking, 0);
 	rb_define_method(cSedna, "initialize", cSedna_initialize, 1);
 	rb_define_method(cSedna, "execute", cSedna_execute, 1);
 	rb_define_method(cSedna, "load_document", cSedna_load_document, -1);

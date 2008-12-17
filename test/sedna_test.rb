@@ -54,6 +54,20 @@ class SednaTest < Test::Unit::TestCase
     s.close
   end
   
+  # Test Sedna.version.
+  def test_version_should_return_3_0
+    assert_equal "3.0", Sedna.version
+  end
+  
+  # Test Sedna.blocking?
+  def test_blocking_should_return_true_if_ruby_18_and_false_if_ruby_19
+    if RUBY_VERSION < "1.9"
+      assert Sedna.blocking?
+    else
+      assert !Sedna.blocking?
+    end
+  end
+  
   # Test Sedna.connect.
   def test_connect_should_return_sedna_object
     sedna = Sedna.connect @connection
@@ -240,6 +254,45 @@ class SednaTest < Test::Unit::TestCase
       # run in parallel and there should be considerable overlap in the start/end
       # times of the executed threads.
       assert time_diff < 0
+    end
+  end
+  
+  # TODO: Make this test case pass for all Ruby versions.
+  #def test_execute_on_same_connection_should_be_run_in_sequence_if_called_from_different_threads_in_ruby_19
+  #  Sedna.connect @connection do |sedna|
+  #    i = 10000
+  #    threads = []
+  #    Thread.abort_on_exception = true
+  #    5.times do
+  #      threads << Thread.new do
+  #        sedna.transaction do
+  #          sleep 1
+  #          sedna.execute "<test/>"
+  #        end
+  #      end
+  #    end
+  #    threads.each do |thread| thread.join end
+  #  end
+  #end
+  
+  def test_execute_should_quit_if_exception_is_raised_in_it_by_another_thread_in_ruby_19
+    name = "test_execute_should_quit_if_exception_is_raised_in_it_by_another_thread"
+    Sedna.connect @connection do |sedna|
+      sedna.execute "drop document '#{name}'" rescue Sedna::Exception
+      begin
+        thread = Thread.new do
+          sedna.execute "create document '#{name}'"
+        end
+        thread.raise
+        thread.join
+      rescue
+      end
+      count = sedna.execute("count(doc('$documents')//*[@name='#{name}'])").first.to_i
+      if RUBY_VERSION < "1.9"
+        assert_equal 1, count
+      else
+        assert_equal 0, count
+      end
     end
   end
   
