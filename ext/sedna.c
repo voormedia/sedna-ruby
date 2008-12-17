@@ -63,7 +63,7 @@ typedef struct SednaConnection SC;
 #ifdef HAVE_RB_THREAD_BLOCKING_REGION
 	#ifdef RB_UBF_DFL
 		#define DEFAULT_UBF RB_UBF_DFL
-	#elif RUBY_UBF_IO
+	#else // RUBY_UBF_IO
 		#define DEFAULT_UBF RUBY_UBF_IO
 	#endif
 	struct SednaQuery {
