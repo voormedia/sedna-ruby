@@ -330,7 +330,7 @@ static VALUE cSedna_s_connect(VALUE klass, VALUE options)
 
 /* :nodoc:
  *
- * Undocument class method that returns the (protocol) verion.
+ * Undocument class method that returns the (protocol) version.
  */
 static VALUE cSedna_s_version(VALUE klass)
 {
