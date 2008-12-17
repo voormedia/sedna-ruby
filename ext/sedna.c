@@ -13,21 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ * ========================================================================
+ *
  * Ruby extension library providing a client API to the Sedna native XML
  * database management system, based on the official Sedna C driver.
  *
  * This file contains the Ruby C-extension.
+ *
+ * ========================================================================
  */
 
 #include <string.h>
 #include "ruby.h"
 #include "libsedna.h"
 
-// Size of the read buffer.
+// Size of the query result read buffer.
 #define RESULT_BUF_LEN 8192
+
+// Size of the load_document buffer.
 #define LOAD_BUF_LEN 8192
 
-// Use macros to fool RDoc and hide some of our methods/aliases.
+// Use this macro to fool RDoc and hide some aliases.
 #define rb_define_undocumented_alias(kl, new, old) rb_define_alias(kl, new, old)
 
 // Macro for verification of return values of the Sedna API + error handling.
@@ -43,7 +49,7 @@
 #define PROTO_TO_STRING(s) PROTO_STRINGIFY(s)
 #define PROTOCOL_VERSION PROTO_TO_STRING(SE_CURRENT_SOCKET_PROTOCOL_VERSION_MAJOR) "." PROTO_TO_STRING(SE_CURRENT_SOCKET_PROTOCOL_VERSION_MINOR)
 
-// Our classes.
+// Ruby classes.
 static VALUE cSedna;
 //static VALUE cSednaSet; //Unused so far.
 static VALUE cSednaException;
@@ -55,19 +61,20 @@ static VALUE cSednaTrnError;
 typedef struct SednaConnection SC;
 
 #ifdef HAVE_RB_THREAD_BLOCKING_REGION
-
-#ifdef RB_UBF_DFL
-#define DEFAULT_UBF RB_UBF_DFL
-#elif RUBY_UBF_IO
-#define DEFAULT_UBF RUBY_UBF_IO
+	#ifdef RB_UBF_DFL
+		#define DEFAULT_UBF RB_UBF_DFL
+	#elif RUBY_UBF_IO
+		#define DEFAULT_UBF RUBY_UBF_IO
+	#endif
+	struct SednaQuery {
+		void *conn;
+		void *query;
+	};
+	typedef struct SednaQuery SQ;
 #endif
-struct SednaQuery {
-	void *conn;
-	void *query;
-};
-typedef struct SednaQuery SQ;
 
-#endif
+
+// Common functions =======================================================
 
 // Test the last error message for conn, and raise an exception if there is one.
 // The type of the exception is based on the result of the function that was
@@ -77,6 +84,7 @@ static void sedna_err(SC *conn, int res)
 	VALUE exception;
 	const char *msg;
 	char *err, *details, *p;
+
 	switch(res) {
 		case SEDNA_AUTHENTICATION_FAILED:
 			exception = cSednaAuthError; break;
@@ -91,15 +99,18 @@ static void sedna_err(SC *conn, int res)
 		default:
 			exception = cSednaException;
 	}
+
 	msg = SEgetLastErrorMsg(conn);
 	err = strstr(msg, "\n");
 	details = strstr(err, "\nDetails: ");
+
 	if(err != NULL) {
 		err++;
 		if((p = strstr(err, "\n")) != NULL) strncpy(p, "\0", 1);
 	} else {
 		err = "Unknown error.";
 	}
+
 	if(details != NULL) {
 		details += 10;
 		while((p = strstr(details, "\n")) != NULL) strncpy(p, " ", 1);
@@ -143,6 +154,7 @@ static VALUE sedna_read(SC *conn, int strip_n)
 	int bytes_read = 0;
 	char buffer[RESULT_BUF_LEN];
 	VALUE str = rb_str_buf_new(0);
+
 	do {
 		bytes_read = SEgetData(conn, buffer, RESULT_BUF_LEN - 1);
 		if(bytes_read == SEDNA_ERROR) {
@@ -163,6 +175,7 @@ static VALUE sedna_read(SC *conn, int strip_n)
 			}
 		}
 	} while(bytes_read > 0);
+
 	return str;
 }
 
@@ -171,6 +184,7 @@ static VALUE sedna_get_results(SC *conn)
 {
 	int res, strip_n = 0;
 	VALUE set = rb_ary_new();
+
 	while((res = SEnext(conn)) != SEDNA_RESULT_END) {
 		if(res == SEDNA_ERROR) sedna_err(conn, res);
 		// Set strip_n to 1 for all results except the first. This will cause
@@ -178,6 +192,7 @@ static VALUE sedna_get_results(SC *conn)
 		rb_ary_push(set, sedna_read(conn, strip_n));
 		if(!strip_n) strip_n = 1;
 	};
+
 	return set;
 }
 
@@ -209,6 +224,9 @@ static void sedna_tr_rollback(SC *conn)
 	verify_res(SEDNA_ROLLBACK_TRANSACTION_SUCCEEDED, res, conn);
 }
 
+
+// Functions available from Ruby ==========================================
+
 // Alocates memory for a SednaConnection struct.
 static VALUE cSedna_s_new(VALUE klass)
 {
@@ -216,6 +234,7 @@ static VALUE cSedna_s_new(VALUE klass)
 	conn = (SC *)malloc(sizeof(SC));
 	if(conn == NULL) rb_raise(rb_eNoMemError, "Could not allocate memory.");
 	memcpy(conn, &init, sizeof(init));
+
 	return Data_Wrap_Struct(klass, sedna_mark, sedna_free, conn);
 }
 
@@ -271,10 +290,12 @@ static VALUE cSedna_close(VALUE self)
 {
 	int res;
 	SC *conn = sedna_struct(self);
+
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_CLOSED) {
 		res = SEclose(conn);
 		verify_res(SEDNA_SESSION_CLOSED, res, conn);
 	}
+
 	return Qnil;
 }
 
@@ -318,10 +339,12 @@ static VALUE cSedna_s_connect(VALUE klass, VALUE options)
 {
 	int status;
 	VALUE obj = rb_funcall(klass, rb_intern("new"), 1, options);
+
 	if(rb_block_given_p()) {
 		rb_protect(rb_yield, obj, &status);
 		cSedna_close(obj);
 		if(status != 0) rb_jump_tag(status); // Re-raise any exception.
+
 		return Qnil;
 	} else {
 		return obj;
@@ -384,18 +407,21 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 {
 	int res;
 	SC *conn = sedna_struct(self);
+
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
+
 #ifdef HAVE_RB_THREAD_BLOCKING_REGION
 	// Non-blocking variant for >= 1.9.
 	SQ q;
 	q.conn = conn;
 	q.query = STR2CSTR(query);
-	// Possible to use SEclose() rahter than NULL?
+	// Possible to use SEclose() rather than RUBY_UBF_IO?
 	res = rb_thread_blocking_region((void*)sedna_blocking_execute, &q, DEFAULT_UBF, NULL);
 #else
 	// Blocking variant for < 1.9.
 	res = SEexecute(conn, STR2CSTR(query));
 #endif
+
 	switch(res) {
 		case SEDNA_QUERY_SUCCEEDED:
 			return sedna_get_results(conn);
@@ -442,10 +468,13 @@ static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 	SC *conn = sedna_struct(self);
 	VALUE document, doc_name, col_name, buf;
 	char *doc_name_c, *col_name_c;
+
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
+
 	rb_scan_args(argc, argv, "21", &document, &doc_name, &col_name); // 2 mandatory args, 1 optional.
 	doc_name_c = STR2CSTR(doc_name);
 	col_name_c = NIL_P(col_name) ? NULL : STR2CSTR(col_name);
+
 	if(TYPE(document) == T_FILE) {
 		while(!NIL_P(buf = rb_funcall(document, rb_intern("read"), 1, INT2NUM(LOAD_BUF_LEN)))) {
 			res = SEloadData(conn, STR2CSTR(buf), RSTRING_LEN(buf), doc_name_c, col_name_c);
@@ -454,11 +483,14 @@ static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 		if(res == 0) rb_raise(cSednaException, "Document is empty.");
 	} else {
 		if(RSTRING_LEN(document) == 0) rb_raise(cSednaException, "Document is empty.");
+
 		res = SEloadData(conn, STR2CSTR(document), RSTRING_LEN(document), doc_name_c, col_name_c);
 		verify_res(SEDNA_DATA_CHUNK_LOADED, res, conn);
 	}
+
 	res = SEendLoadData(conn);
 	verify_res(SEDNA_BULK_LOAD_SUCCEEDED, res, conn);
+
 	return Qnil;
 }
 
@@ -470,8 +502,10 @@ static VALUE cSedna_autocommit_set(VALUE self, VALUE auto_commit)
 {
 	int val = (RTEST(auto_commit) ? Qtrue : Qfalse);
 	SC *conn = sedna_struct(self);
+
 	switch_sedna_autocommit(conn, val);
 	rb_iv_set(self, "@autocommit", val);
+
 	return Qnil;
 }
 
@@ -520,22 +554,32 @@ static VALUE cSedna_transaction(VALUE self)
 {
 	int status;
 	SC *conn = sedna_struct(self);
+
 	sedna_autocommit_off(conn);
 	sedna_tr_begin(conn);
+
 	rb_protect(rb_yield, Qnil, &status);
+
 	if(status == 0) {
 		// Attempt to commit.
 		if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) sedna_tr_commit(conn);
 		else rb_raise(cSednaTrnError, "The transaction was prematurely ended, but no error was encountered. Did you rescue an exception inside the transaction?");
+
 		switch_sedna_autocommit(conn, rb_iv_get(self, "@autocommit"));
 	} else {
 		// Stack has unwinded, attempt to roll back.
 		if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) sedna_tr_rollback(conn);
+
 		switch_sedna_autocommit(conn, rb_iv_get(self, "@autocommit"));
+
 		rb_jump_tag(status); // Re-raise exception.
 	}
+
 	return Qnil;
 }
+
+
+// Initialize the extension ==============================================
 
 void Init_sedna()
 {
@@ -558,15 +602,19 @@ void Init_sedna()
 	 * See the README for a high-level overview of how to use this library.
 	 */
 	cSedna = rb_define_class("Sedna", rb_cObject);
+
 	rb_define_alloc_func(cSedna, cSedna_s_new);
 	rb_define_singleton_method(cSedna, "connect", cSedna_s_connect, 1);
 	rb_define_singleton_method(cSedna, "version", cSedna_s_version, 0);
 	rb_define_singleton_method(cSedna, "blocking?", cSedna_s_blocking, 0);
+
 	rb_define_method(cSedna, "initialize", cSedna_initialize, 1);
 	rb_define_method(cSedna, "execute", cSedna_execute, 1);
 	rb_define_method(cSedna, "load_document", cSedna_load_document, -1);
-	rb_define_undocumented_alias(cSedna, "query", "execute");
 	rb_define_method(cSedna, "close", cSedna_close, 0);
+	rb_define_method(cSedna, "transaction", cSedna_transaction, 0);
+
+	rb_define_undocumented_alias(cSedna, "query", "execute");
 
 	/*
 	 * Document-attr: autocommit
@@ -587,7 +635,6 @@ void Init_sedna()
 	 */
 	rb_define_method(cSedna, "autocommit=", cSedna_autocommit_set, 1);
 	rb_define_method(cSedna, "autocommit", cSedna_autocommit_get, 0);
-	rb_define_method(cSedna, "transaction", cSedna_transaction, 0);
 
 	/*
 	 * The result set of a database query.
