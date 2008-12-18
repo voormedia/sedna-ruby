@@ -43,6 +43,8 @@ header files of the C driver. They are shipped and installed as part of the bina
 distribution of \Sedna. When installing, choose either <tt>/usr/local/sedna</tt> or
 <tt>/opt/sedna</tt> as target locations.
 
+The library has been tested with Ruby 1.8.5, 1.8.6, 1.8.7, 1.9.0 and 1.9.1.
+
 === Installation
 
 After installing the \Sedna C driver (see above), simply install the Ruby client
