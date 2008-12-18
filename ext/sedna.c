@@ -351,18 +351,25 @@ static VALUE cSedna_s_connect(VALUE klass, VALUE options)
 	}
 }
 
-/* :nodoc:
+/*
+ * call-seq:
+ *   Sedna.version -> string
  *
- * Undocument class method that returns the (protocol) version.
+ * Returns the current version of the Sedna client protocol.
  */
 static VALUE cSedna_s_version(VALUE klass)
 {
 	return rb_str_new2(PROTOCOL_VERSION);
 }
 
-/* :nodoc:
+/*
+ * call-seq:
+ *   Sedna.blocking? -> true or false
  *
- * Undocument class method that returns if the execute method is blocking.
+ * Returns +true+ if querying the database with Sedna#execute will block other
+ * threads. Returns +false+ if multiple queries can be run in different threads
+ * simultaneously. \Sedna will not block other threads when compiled against
+ * Ruby 1.9.
  */
 static VALUE cSedna_s_blocking(VALUE klass)
 {
