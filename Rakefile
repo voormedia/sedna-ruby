@@ -32,6 +32,7 @@ task :build do
   Dir.chdir "ext"
   ruby "extconf.rb"
   sh "make"
+  Dir.chdir ".."
 end
 
 desc "Remove build products"
