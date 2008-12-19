@@ -152,10 +152,14 @@ static void sedna_mark(SC *conn)
 { /* Unused. */ }
 
 #ifdef HAVE_RB_THREAD_BLOCKING_REGION
-// Dereference execution of query to this function for non-blocking goodness.
 static int sedna_blocking_execute(SQ *q)
 {
 	return SEexecute(q->conn, q->query);
+}
+
+static int sedna_execute(SQ *q)
+{
+	return rb_thread_blocking_region((void*)sedna_blocking_execute, q, DEFAULT_UBF, NULL);
 }
 #endif
 
@@ -285,6 +289,10 @@ static VALUE cSedna_initialize(VALUE self, VALUE options)
 
 	// Initialize @autocommit to true (default argument).
 	rb_iv_set(self, "@autocommit", Qtrue);
+
+#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+	rb_iv_set(self, "@mutex", rb_mutex_new());
+#endif
 
 	return self;
 }
@@ -427,8 +435,7 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 #ifdef HAVE_RB_THREAD_BLOCKING_REGION
 	// Non-blocking variant for >= 1.9.
 	SQ q = { conn, STR2CSTR(query) };
-	// Possible to use SEclose() rather than RUBY_UBF_IO?
-	res = rb_thread_blocking_region((void*)sedna_blocking_execute, &q, DEFAULT_UBF, NULL);
+	res = rb_mutex_synchronize(rb_iv_get(self, "@mutex"), sedna_execute, &q);
 #else
 	// Blocking variant for < 1.9.
 	res = SEexecute(conn, STR2CSTR(query));
