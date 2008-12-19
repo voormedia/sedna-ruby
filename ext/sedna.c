@@ -59,13 +59,8 @@
 typedef struct SednaConnection SC;
 
 #ifdef HAVE_RB_THREAD_BLOCKING_REGION
+	#define NON_BLOCKING
 	#define SEDNA_BLOCKING Qfalse
-
-	#ifdef RB_UBF_DFL
-		#define DEFAULT_UBF RB_UBF_DFL
-	#else // RUBY_UBF_IO
-		#define DEFAULT_UBF RUBY_UBF_IO
-	#endif
 
 	struct SednaQuery {
 		void *conn;
@@ -151,7 +146,7 @@ static void sedna_free(SC *conn)
 static void sedna_mark(SC *conn)
 { /* Unused. */ }
 
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+#ifdef NON_BLOCKING
 static int sedna_blocking_execute(SQ *q)
 {
 	return SEexecute(q->conn, q->query);
@@ -159,7 +154,7 @@ static int sedna_blocking_execute(SQ *q)
 
 static int sedna_execute(SQ *q)
 {
-	return rb_thread_blocking_region((void*)sedna_blocking_execute, q, DEFAULT_UBF, NULL);
+	return rb_thread_blocking_region((void*)sedna_blocking_execute, q, RUBY_UBF_IO, NULL);
 }
 #endif
 
@@ -290,7 +285,7 @@ static VALUE cSedna_initialize(VALUE self, VALUE options)
 	// Initialize @autocommit to true (default argument).
 	rb_iv_set(self, "@autocommit", Qtrue);
 
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+#ifdef NON_BLOCKING
 	rb_iv_set(self, "@mutex", rb_mutex_new());
 #endif
 
@@ -432,7 +427,7 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
 
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+#ifdef NON_BLOCKING
 	// Non-blocking variant for >= 1.9.
 	SQ q = { conn, STR2CSTR(query) };
 	res = rb_mutex_synchronize(rb_iv_get(self, "@mutex"), sedna_execute, &q);
