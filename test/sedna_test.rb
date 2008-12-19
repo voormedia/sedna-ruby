@@ -601,7 +601,6 @@ class SednaTest < Test::Unit::TestCase
   
   def test_transaction_should_raise_transaction_error_if_called_from_different_threads_on_same_connection
     Sedna.connect @connection do |sedna|
-      i = 10000
       threads = []
       exceptions = []
       Thread.abort_on_exception = true
