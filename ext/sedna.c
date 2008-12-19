@@ -231,7 +231,7 @@ static void sedna_tr_rollback(SC *conn)
 static VALUE cSedna_s_new(VALUE klass)
 {
 	SC *conn, init = SEDNA_CONNECTION_INITIALIZER;
-	conn = (SC *)malloc(sizeof(SC));
+	conn = ALLOC(SC);
 	if(conn == NULL) rb_raise(rb_eNoMemError, "Could not allocate memory.");
 	memcpy(conn, &init, sizeof(init));
 
