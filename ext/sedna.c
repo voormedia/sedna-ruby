@@ -49,6 +49,33 @@
 #define PROTO_TO_STRING(s) PROTO_STRINGIFY(s)
 #define PROTOCOL_VERSION PROTO_TO_STRING(SE_CURRENT_SOCKET_PROTOCOL_VERSION_MAJOR) "." PROTO_TO_STRING(SE_CURRENT_SOCKET_PROTOCOL_VERSION_MINOR)
 
+// Default connection arguments
+#define DEFAULT_HOST "localhost"
+#define DEFAULT_DATABASE "test"
+#define DEFAULT_USER "SYSTEM"
+#define DEFAULT_PASSWORD "MANAGER"
+
+// Define a shorthand for the common SednaConnection structure.
+typedef struct SednaConnection SC;
+
+#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+	#define SEDNA_BLOCKING Qfalse
+
+	#ifdef RB_UBF_DFL
+		#define DEFAULT_UBF RB_UBF_DFL
+	#else // RUBY_UBF_IO
+		#define DEFAULT_UBF RUBY_UBF_IO
+	#endif
+
+	struct SednaQuery {
+		void *conn;
+		void *query;
+	};
+	typedef struct SednaQuery SQ;
+#else
+	#define SEDNA_BLOCKING Qtrue
+#endif
+
 // Ruby classes.
 static VALUE cSedna;
 //static VALUE cSednaSet; //Unused so far.
@@ -56,22 +83,6 @@ static VALUE cSednaException;
 static VALUE cSednaAuthError;
 static VALUE cSednaConnError;
 static VALUE cSednaTrnError;
-
-// Define a shorthand for the common SednaConnection structure.
-typedef struct SednaConnection SC;
-
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
-	#ifdef RB_UBF_DFL
-		#define DEFAULT_UBF RB_UBF_DFL
-	#else // RUBY_UBF_IO
-		#define DEFAULT_UBF RUBY_UBF_IO
-	#endif
-	struct SednaQuery {
-		void *conn;
-		void *query;
-	};
-	typedef struct SednaQuery SQ;
-#endif
 
 
 // Common functions =======================================================
@@ -255,10 +266,10 @@ static VALUE cSedna_initialize(VALUE self, VALUE options)
 	user_k = ID2SYM(rb_intern("username"));
 	pw_k = ID2SYM(rb_intern("password"));
 
-	if(NIL_P(host_v = rb_hash_aref(options, host_k))) host = "localhost"; else host = STR2CSTR(host_v);
-	if(NIL_P(db_v = rb_hash_aref(options, db_k))) db = "test"; else db = STR2CSTR(db_v);
-	if(NIL_P(user_v = rb_hash_aref(options, user_k))) user = "SYSTEM"; else user = STR2CSTR(user_v);
-	if(NIL_P(pw_v = rb_hash_aref(options, pw_k))) pw = "MANAGER"; else pw = STR2CSTR(pw_v);
+	if(NIL_P(host_v = rb_hash_aref(options, host_k))) host = DEFAULT_HOST; else host = STR2CSTR(host_v);
+	if(NIL_P(db_v = rb_hash_aref(options, db_k))) db = DEFAULT_DATABASE; else db = STR2CSTR(db_v);
+	if(NIL_P(user_v = rb_hash_aref(options, user_k))) user = DEFAULT_USER; else user = STR2CSTR(user_v);
+	if(NIL_P(pw_v = rb_hash_aref(options, pw_k))) pw = DEFAULT_PASSWORD; else pw = STR2CSTR(pw_v);
 
 	res = SEconnect(conn, host, db, user, pw);
 	if(res != SEDNA_SESSION_OPEN) {
@@ -373,11 +384,7 @@ static VALUE cSedna_s_version(VALUE klass)
  */
 static VALUE cSedna_s_blocking(VALUE klass)
 {
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
-	return Qfalse;
-#else
-	return Qtrue;
-#endif
+	return SEDNA_BLOCKING;
 }
 
 /*
