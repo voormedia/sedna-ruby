@@ -186,8 +186,8 @@ class SednaTest < Test::Unit::TestCase
   
   # Test sedna.execute / sedna.query.
   test "execute should raise TypeError if argument cannot be converted to String" do
-    assert_raises TypeError do
-      Sedna.connect @connection do |sedna|
+    Sedna.connect @connection do |sedna|
+      assert_raises TypeError do
         sedna.execute Object.new
       end
     end
@@ -342,24 +342,24 @@ class SednaTest < Test::Unit::TestCase
 
   # Test sedna.load_document.
   test "load_document should raise TypeError if document argument cannot be converted to String" do
-    assert_raises TypeError do
-      Sedna.connect @connection do |sedna|
+    Sedna.connect @connection do |sedna|
+      assert_raises TypeError do
         sedna.load_document Object.new, method_name
       end
     end
   end
 
   test "load_document should raise TypeError if doc_name argument cannot be converted to String" do
-    assert_raises TypeError do
-      Sedna.connect @connection do |sedna|
+    Sedna.connect @connection do |sedna|
+      assert_raises TypeError do
         sedna.load_document "<doc/>", Object.new
       end
     end
   end
 
   test "load_document should raise TypeError if col_name argument cannot be converted to String" do
-    assert_raises TypeError do
-      Sedna.connect @connection do |sedna|
+    Sedna.connect @connection do |sedna|
+      assert_raises TypeError do
         sedna.load_document "<doc/>", method_name, Object.new
       end
     end
@@ -567,8 +567,8 @@ class SednaTest < Test::Unit::TestCase
   end
   
   test "transaction should fail with Sedna::TransactionError if another transaction is started inside it" do
-    assert_raises Sedna::TransactionError do
-      Sedna.connect @connection do |sedna|
+    Sedna.connect @connection do |sedna|
+      assert_raises Sedna::TransactionError do
         sedna.transaction do
           sedna.transaction do end
         end
@@ -620,8 +620,8 @@ class SednaTest < Test::Unit::TestCase
   end
 
   test "transaction should raise Sedna::TransactionError if invalid statement caused exception but it was rescued" do
-    assert_raises Sedna::TransactionError do
-      Sedna.connect @connection do |sedna|
+    Sedna.connect @connection do |sedna|
+      assert_raises Sedna::TransactionError do
         sedna.transaction do
           sedna.execute "FAILS" rescue Sedna::Exception
         end
