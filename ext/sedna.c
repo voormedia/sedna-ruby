@@ -404,7 +404,7 @@ static VALUE cSedna_s_blocking(VALUE klass)
  * Sedna::Exception is raised if the query fails or is invalid.
  *
  * This method does not block other threads in Ruby 1.9 -- database queries that
- * are run from different threads on different connections will run concurrently.
+ * are run in different threads with different connections will run concurrently.
  * You can use Sedna.blocking? to verify if the extension supports non-blocking
  * behaviour. Database queries run from different threads, but on the same
  * connection will still block and be executed serially.
@@ -556,9 +556,9 @@ static VALUE cSedna_autocommit_get(VALUE self)
  * \transaction fails to be committed, a Sedna::TransactionError will
  * be raised. 
  *
- * Transactions cannot be nested or executed simultaneously on the same connection.
+ * Transactions cannot be nested or executed simultaneously with the same connection.
  * Calling this method inside a block that is passed to another transaction, or
- * on the same connection from two concurrent threads will raise a
+ * with the same connection in two concurrent threads will raise a
  * Sedna::TransactionError on the second invocation.
  *
  * ==== Examples
