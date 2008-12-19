@@ -426,9 +426,7 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 
 #ifdef HAVE_RB_THREAD_BLOCKING_REGION
 	// Non-blocking variant for >= 1.9.
-	SQ q;
-	q.conn = conn;
-	q.query = STR2CSTR(query);
+	SQ q = { conn, STR2CSTR(query) };
 	// Possible to use SEclose() rather than RUBY_UBF_IO?
 	res = rb_thread_blocking_region((void*)sedna_blocking_execute, &q, DEFAULT_UBF, NULL);
 #else
