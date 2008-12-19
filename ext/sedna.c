@@ -502,6 +502,7 @@ static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 		}
 		if(res == 0) rb_raise(cSednaException, "Document is empty.");
 	} else {
+		Check_Type(document, T_STRING);
 		if(RSTRING_LEN(document) == 0) rb_raise(cSednaException, "Document is empty.");
 
 		res = SEloadData(conn, STR2CSTR(document), RSTRING_LEN(document), doc_name_c, col_name_c);

@@ -184,6 +184,14 @@ class SednaTest < Test::Unit::TestCase
   end
   
   # Test sedna.execute / sedna.query.
+  test "execute should raise TypeError if argument cannot be converted to String" do
+    assert_raises TypeError do
+      Sedna.connect @connection do |sedna|
+        sedna.execute Object.new
+      end
+    end
+  end
+  
   test "execute should return nil for data structure query" do
     Sedna.connect @connection do |sedna|
       sedna.execute("drop document '#{method_name}'") rescue Sedna::Exception
@@ -326,6 +334,30 @@ class SednaTest < Test::Unit::TestCase
   end
 
   # Test sedna.load_document.
+  test "load_document should raise TypeError if document argument cannot be converted to String" do
+    assert_raises TypeError do
+      Sedna.connect @connection do |sedna|
+        sedna.load_document Object.new, method_name
+      end
+    end
+  end
+
+  test "load_document should raise TypeError if doc_name argument cannot be converted to String" do
+    assert_raises TypeError do
+      Sedna.connect @connection do |sedna|
+        sedna.load_document "<doc/>", Object.new
+      end
+    end
+  end
+
+  test "load_document should raise TypeError if col_name argument cannot be converted to String" do
+    assert_raises TypeError do
+      Sedna.connect @connection do |sedna|
+        sedna.load_document "<doc/>", method_name, Object.new
+      end
+    end
+  end
+
   test "load_document should create document in given collection" do
     Sedna.connect @connection do |sedna|
       col = "test_collection"
