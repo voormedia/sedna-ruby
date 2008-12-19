@@ -218,6 +218,12 @@ class SednaTest < Test::Unit::TestCase
       assert_equal ["<test/>", "<test/>", "<test/>"], sedna.execute("<test/>, <test/>, <test/>")
     end
   end
+  
+  test "execute should return tainted strings" do
+    Sedna.connect @connection do |sedna|
+      assert sedna.execute("<test/>").first.tainted?
+    end
+  end
 
   test "execute should fail if autocommit is false" do
     Sedna.connect @connection do |sedna|

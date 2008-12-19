@@ -164,6 +164,7 @@ static VALUE sedna_read(SC *conn, int strip_n)
 	int bytes_read = 0;
 	char buffer[RESULT_BUF_LEN];
 	VALUE str = rb_str_buf_new(0);
+	OBJ_TAINT(str);
 
 	do {
 		bytes_read = SEgetData(conn, buffer, RESULT_BUF_LEN - 1);
