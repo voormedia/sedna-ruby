@@ -599,7 +599,7 @@ class SednaTest < Test::Unit::TestCase
     assert_equal "It is a dynamic error if evaluation of an expression relies on some part of the dynamic context that has not been assigned a value.", exc.message
   end
   
-  def test_transaction_should_be_run_in_serially_if_called_from_different_threads_on_same_connection
+  def test_transaction_should_raise_transaction_error_if_called_from_different_threads_on_same_connection
     Sedna.connect @connection do |sedna|
       i = 10000
       threads = []
@@ -612,12 +612,12 @@ class SednaTest < Test::Unit::TestCase
               sleep 0.1
             end
           rescue StandardError => e
-            exceptions << e
+            exceptions << e.class
           end
         end
       end
       threads.each do |thread| thread.join end
-      assert_equal [], exceptions
+      assert_equal [Sedna::TransactionError] * 4, exceptions
     end
   end
 end
