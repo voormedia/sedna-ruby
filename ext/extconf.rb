@@ -68,6 +68,13 @@ passing the -fPIC option to gcc.
   end
 end
 
-have_func("rb_thread_blocking_region")
+if have_func("rb_thread_blocking_region") and !have_func("rb_mutex_synchronize")
+  $stderr.write %{==============================================================================
+This Ruby version incorrectly defines Mutex#synchronize. Please upgrade to a
+newer version of Ruby (1.9.1+).
+==============================================================================
+}
+  exit 5
+end
 
 create_makefile "sedna"
