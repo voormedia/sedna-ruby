@@ -37,12 +37,12 @@
 #define rb_define_undocumented_alias(kl, new, old) rb_define_alias(kl, new, old)
 
 // Macro for verification of return values of the Sedna API + error handling.
-#define verify_res(expected, real, conn) if(real != expected) sedna_err(conn, real)
+#define VERIFY_RES(expected, real, conn) if(real != expected) sedna_err(conn, real)
 
 // Macro for setting autocommit values on connection conn.
-#define sedna_autocommit_on(conn) sedna_autocommit(conn, SEDNA_AUTOCOMMIT_ON)
-#define sedna_autocommit_off(conn) sedna_autocommit(conn, SEDNA_AUTOCOMMIT_OFF)
-#define switch_sedna_autocommit(conn, val) if(val) sedna_autocommit_on(conn); else sedna_autocommit_off(conn)
+#define SEDNA_AUTOCOMMIT_ENABLE(conn) sedna_autocommit(conn, SEDNA_AUTOCOMMIT_ON)
+#define SEDNA_AUTOCOMMIT_DISABLE(conn) sedna_autocommit(conn, SEDNA_AUTOCOMMIT_OFF)
+#define SWITCH_SEDNA_AUTOCOMMIT(conn, val) if(val) SEDNA_AUTOCOMMIT_ENABLE(conn); else SEDNA_AUTOCOMMIT_DISABLE(conn)
 
 // Define the protocol version number as string.
 #define PROTO_STRINGIFY(s) #s
@@ -211,28 +211,28 @@ static VALUE sedna_get_results(SC *conn)
 static void sedna_autocommit(SC *conn, int value)
 {
 	int res = SEsetConnectionAttr(conn, SEDNA_ATTR_AUTOCOMMIT, (void *)&value, sizeof(int));
-	verify_res(SEDNA_SET_ATTRIBUTE_SUCCEEDED, res, conn);
+	VERIFY_RES(SEDNA_SET_ATTRIBUTE_SUCCEEDED, res, conn);
 }
 
 // Begin a transaction.
 static void sedna_tr_begin(SC *conn)
 {
 	int res = SEbegin(conn);
-	verify_res(SEDNA_BEGIN_TRANSACTION_SUCCEEDED, res, conn);
+	VERIFY_RES(SEDNA_BEGIN_TRANSACTION_SUCCEEDED, res, conn);
 }
 
 // Commit a transaction.
 static void sedna_tr_commit(SC *conn)
 {
 	int res = SEcommit(conn);
-	verify_res(SEDNA_COMMIT_TRANSACTION_SUCCEEDED, res, conn);
+	VERIFY_RES(SEDNA_COMMIT_TRANSACTION_SUCCEEDED, res, conn);
 }
 
 // Rollback a transaction.
 static void sedna_tr_rollback(SC *conn)
 {
 	int res = SErollback(conn);
-	verify_res(SEDNA_ROLLBACK_TRANSACTION_SUCCEEDED, res, conn);
+	VERIFY_RES(SEDNA_ROLLBACK_TRANSACTION_SUCCEEDED, res, conn);
 }
 
 
@@ -304,7 +304,7 @@ static VALUE cSedna_close(VALUE self)
 
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_CLOSED) {
 		res = SEclose(conn);
-		verify_res(SEDNA_SESSION_CLOSED, res, conn);
+		VERIFY_RES(SEDNA_SESSION_CLOSED, res, conn);
 	}
 
 	return Qnil;
@@ -492,18 +492,18 @@ static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 	if(TYPE(document) == T_FILE) {
 		while(!NIL_P(buf = rb_funcall(document, rb_intern("read"), 1, INT2NUM(LOAD_BUF_LEN)))) {
 			res = SEloadData(conn, STR2CSTR(buf), RSTRING_LEN(buf), doc_name_c, col_name_c);
-			verify_res(SEDNA_DATA_CHUNK_LOADED, res, conn);
+			VERIFY_RES(SEDNA_DATA_CHUNK_LOADED, res, conn);
 		}
 		if(res == 0) rb_raise(cSednaException, "Document is empty.");
 	} else {
 		if(RSTRING_LEN(document) == 0) rb_raise(cSednaException, "Document is empty.");
 
 		res = SEloadData(conn, STR2CSTR(document), RSTRING_LEN(document), doc_name_c, col_name_c);
-		verify_res(SEDNA_DATA_CHUNK_LOADED, res, conn);
+		VERIFY_RES(SEDNA_DATA_CHUNK_LOADED, res, conn);
 	}
 
 	res = SEendLoadData(conn);
-	verify_res(SEDNA_BULK_LOAD_SUCCEEDED, res, conn);
+	VERIFY_RES(SEDNA_BULK_LOAD_SUCCEEDED, res, conn);
 
 	return Qnil;
 }
@@ -517,7 +517,7 @@ static VALUE cSedna_autocommit_set(VALUE self, VALUE auto_commit)
 	int val = (RTEST(auto_commit) ? Qtrue : Qfalse);
 	SC *conn = sedna_struct(self);
 
-	switch_sedna_autocommit(conn, val);
+	SWITCH_SEDNA_AUTOCOMMIT(conn, val);
 	rb_iv_set(self, "@autocommit", val);
 
 	return Qnil;
@@ -569,7 +569,7 @@ static VALUE cSedna_transaction(VALUE self)
 	int status;
 	SC *conn = sedna_struct(self);
 
-	sedna_autocommit_off(conn);
+	SEDNA_AUTOCOMMIT_DISABLE(conn);
 	sedna_tr_begin(conn);
 
 	rb_protect(rb_yield, Qnil, &status);
@@ -579,12 +579,12 @@ static VALUE cSedna_transaction(VALUE self)
 		if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) sedna_tr_commit(conn);
 		else rb_raise(cSednaTrnError, "The transaction was prematurely ended, but no error was encountered. Did you rescue an exception inside the transaction?");
 
-		switch_sedna_autocommit(conn, rb_iv_get(self, "@autocommit"));
+		SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, "@autocommit"));
 	} else {
 		// Stack has unwinded, attempt to roll back.
 		if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) sedna_tr_rollback(conn);
 
-		switch_sedna_autocommit(conn, rb_iv_get(self, "@autocommit"));
+		SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, "@autocommit"));
 
 		rb_jump_tag(status); // Re-raise exception.
 	}
