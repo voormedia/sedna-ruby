@@ -87,7 +87,7 @@ class SednaTest < Test::Unit::TestCase
   end
   
   # Test Sedna.connect.
-  test "connect should return sedna object" do
+  test "connect should return Sedna object" do
     sedna = Sedna.connect @connection
     assert_kind_of Sedna, sedna
     sedna.close
@@ -155,7 +155,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "connect should reraise exceptions from inside block" do
+  test "connect should re-raise exceptions from inside block" do
     assert_raises Exception do
       Sedna.connect @connection do
         raise Exception
@@ -213,7 +213,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "execute should fail with sedna exception for invalid statments" do
+  test "execute should fail with Sedna::Exception for invalid statements" do
     Sedna.connect @connection do |sedna|
       assert_raises Sedna::Exception do
         sedna.execute "INVALID"
@@ -221,7 +221,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "execute should fail with sedna connection error if connection is closed" do
+  test "execute should fail with Sedna::ConnectionError if connection is closed" do
     Sedna.connect @connection do |sedna|
       sedna.close
       assert_raises Sedna::ConnectionError do
@@ -373,7 +373,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "load_document should fail with sedna exception for invalid documents" do
+  test "load_document should fail with Sedna::Exception for invalid documents" do
     Sedna.connect @connection do |sedna|
       assert_raises Sedna::Exception do
         sedna.load_document "<doc/> this is an invalid document", "some_doc"
@@ -392,7 +392,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "load_document should fail with sedna connection error if connection is closed" do
+  test "load_document should fail with Sedna::ConnectionError if connection is closed" do
     Sedna.connect @connection do |sedna|
       sedna.close
       assert_raises Sedna::ConnectionError do
@@ -401,7 +401,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
 
-  test "load_document should create document if given document is io object" do
+  test "load_document should create document if given document is IO object" do
     Sedna.connect @connection do |sedna|
       doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>" << ("\n <some_very_often_repeated_node/>" * 800) << "\n</document>"
       p_out, p_in = IO.pipe
@@ -415,7 +415,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
 
-  test "load_document should raise sedna exception if given document is empty io object" do
+  test "load_document should raise Sedna::Exception if given document is empty IO object" do
     Sedna.connect @connection do |sedna|
       p_out, p_in = IO.pipe
       p_in.close
@@ -431,7 +431,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
 
-  test "load_document should raise sedna exception if given document is empty string" do
+  test "load_document should raise Sedna::Exception if given document is empty string" do
     Sedna.connect @connection do |sedna|
       sedna.execute "drop document '#{method_name}'" rescue Sedna::Exception
       e = nil
@@ -487,7 +487,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "autocommit should be reenabled after transactions" do
+  test "autocommit should be re-enabled after transactions" do
     Sedna.connect @connection do |sedna|
       sedna.autocommit = true
       sedna.transaction do end
@@ -504,7 +504,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "transaction should raise localjumperror if no block is given" do
+  test "transaction should raise LocalJumpError if no block is given" do
     assert_raises LocalJumpError do
       Sedna.connect @connection do |sedna|
         sedna.transaction
@@ -521,7 +521,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "transaction should fail with transaction error if another transaction is started inside it" do
+  test "transaction should fail with Sedna::TransactionError if another transaction is started inside it" do
     assert_raises Sedna::TransactionError do
       Sedna.connect @connection do |sedna|
         sedna.transaction do
@@ -574,7 +574,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
 
-  test "transaction should raise transaction error if invalid statement caused exception but it was rescued" do
+  test "transaction should raise Sedna::TransactionError if invalid statement caused exception but it was rescued" do
     assert_raises Sedna::TransactionError do
       Sedna.connect @connection do |sedna|
         sedna.transaction do
@@ -584,7 +584,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "transaction should reraise exceptions from inside block" do
+  test "transaction should re-raise exceptions from inside block" do
     Sedna.connect @connection do |sedna|
       assert_raises Exception do
         sedna.transaction do
@@ -607,7 +607,7 @@ class SednaTest < Test::Unit::TestCase
     assert_equal "It is a dynamic error if evaluation of an expression relies on some part of the dynamic context that has not been assigned a value.", exc.message
   end
   
-  test "transaction should raise transaction error if called from different threads on same connection" do
+  test "transaction should raise Sedna::TransactionError if called from different threads on same connection" do
     Sedna.connect @connection do |sedna|
       threads = []
       exceptions = []
