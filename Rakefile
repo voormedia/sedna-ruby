@@ -27,6 +27,8 @@ require 'rake/rdoctask'
 RDOC_TITLE = "Sedna XML DBMS client library for Ruby"
 RDOC_FILES = FileList["[A-Z][A-Z]*", "ext/**/*.c"].to_a
 
+task :default => [:rebuild, :test]
+
 desc "Build the Ruby extension"
 task :build do
   Dir.chdir "ext"
