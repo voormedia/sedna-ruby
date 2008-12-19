@@ -92,6 +92,12 @@ class SednaTest < Test::Unit::TestCase
     assert_kind_of Sedna, sedna
     sedna.close
   end
+  
+  test "connect should raise TypeError if argument is not a Hash" do
+    assert_raises TypeError do
+      sedna = Sedna.connect Object.new
+    end
+  end
 
   test "connect should raise exception when host not found" do
     assert_raises Sedna::ConnectionError do
