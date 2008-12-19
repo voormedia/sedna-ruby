@@ -224,7 +224,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
 
-  def test_execute_should_block_for_ruby_18_and_not_block_for_ruby_19
+  def test_execute_should_block_other_threads_for_ruby_18_and_not_block_for_ruby_19
     n = 5 # Amount of threads to be run. Increase for more accuracy.
     i = 10000 # Times to loop in query. Increase for more accuracy.
     threads = []
@@ -257,23 +257,25 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  # TODO: Make this test case pass for all Ruby versions.
-  #def test_execute_on_same_connection_should_be_run_in_sequence_if_called_from_different_threads_in_ruby_19
-  #  Sedna.connect @connection do |sedna|
-  #    i = 10000
-  #    threads = []
-  #    Thread.abort_on_exception = true
-  #    5.times do
-  #      threads << Thread.new do
-  #        sedna.transaction do
-  #          sleep 1
-  #          sedna.execute "<test/>"
-  #        end
-  #      end
-  #    end
-  #    threads.each do |thread| thread.join end
-  #  end
-  #end
+  def test_execute_should_be_run_in_serially_if_called_from_different_threads_on_same_connection
+    Sedna.connect @connection do |sedna|
+      i = 1000
+      threads = []
+      exceptions = []
+      Thread.abort_on_exception = true
+      5.times do
+        threads << Thread.new do
+          begin
+            sedna.execute "for $x in #{i} where $x = 1 return <node/>"
+          rescue StandardError => e
+            exceptions << e
+          end
+        end
+      end
+      threads.each do |thread| thread.join end
+      assert_equal [], exceptions
+    end
+  end
   
   def test_execute_should_quit_if_exception_is_raised_in_it_by_another_thread_in_ruby_19
     name = "test_execute_should_quit_if_exception_is_raised_in_it_by_another_thread"
@@ -595,5 +597,27 @@ class SednaTest < Test::Unit::TestCase
     rescue Sedna::Exception => exc
     end
     assert_equal "It is a dynamic error if evaluation of an expression relies on some part of the dynamic context that has not been assigned a value.", exc.message
+  end
+  
+  def test_transaction_should_be_run_in_serially_if_called_from_different_threads_on_same_connection
+    Sedna.connect @connection do |sedna|
+      i = 10000
+      threads = []
+      exceptions = []
+      Thread.abort_on_exception = true
+      5.times do
+        threads << Thread.new do
+          begin
+            sedna.transaction do
+              sleep 0.1
+            end
+          rescue StandardError => e
+            exceptions << e
+          end
+        end
+      end
+      threads.each do |thread| thread.join end
+      assert_equal [], exceptions
+    end
   end
 end
