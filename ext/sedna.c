@@ -436,7 +436,7 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 #ifdef NON_BLOCKING
 	// Non-blocking variant for >= 1.9.
 	SQ q = { conn, STR2CSTR(query) };
-	res = rb_mutex_synchronize(rb_iv_get(self, "@mutex"), sedna_execute, &q);
+	res = rb_mutex_synchronize(rb_iv_get(self, "@mutex"), (void*)sedna_execute, (VALUE)&q);
 #else
 	// Blocking variant for < 1.9.
 	res = SEexecute(conn, STR2CSTR(query));
