@@ -32,9 +32,9 @@ limitations under the License.
 
 === Current version
 
-The current version of this library is 0.2.0. This version is a <b>development
-preview</b>. The API may change significantly between minor versions.
-For a complete overview all recent and previous changes, see CHANGES.
+The current version of this library is 0.3.0. This release is a <b>beta version</b>.
+The API may change significantly between minor versions. For a complete overview
+all recent and previous changes, see CHANGES.
 
 === Requirements
 
@@ -43,7 +43,8 @@ header files of the C driver. They are shipped and installed as part of the bina
 distribution of \Sedna. When installing, choose either <tt>/usr/local/sedna</tt> or
 <tt>/opt/sedna</tt> as target locations.
 
-The library has been tested with Ruby 1.8.5 and above, including Ruby 1.9.x.
+The library has been tested with Ruby 1.8.5 and above, including Ruby 1.9.1
+(preview 2), but excluding Ruby 1.9.0.
 
 === Installation
 

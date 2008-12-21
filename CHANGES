@@ -1,3 +1,14 @@
+=== 0.3.0
+
+* Released on December 21st, 2008.
+* Compatible with the latest build of \Sedna (3.1.126).
+* Fully tested in Ruby 1.8.5, 1.8.6, 1.8.7, and 1.9.1-preview2. (1.9.0.x does not work.)
+* Sedna#execute no longer blocks other threads in Ruby 1.9. Use Sedna.blocking?
+  to discover if support for non-blocking queries is enabled.
+* Strings in the result Array of Sedna#execute are now properly tainted.
+* Thread-safe in both Ruby 1.8 and Ruby 1.9.
+* Added Sedna.version, which returns the current client protocol version.
+
 === 0.2.0
 
 * Released on December 15th, 2008.
