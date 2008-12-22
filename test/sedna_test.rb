@@ -44,31 +44,27 @@ class SednaTest < Test::Unit::TestCase
 
   alias :__method__ :method_name if method_defined? :method_name
   
-  # Setup.
-  def setup
-    @connection = {
-      :database => "test",
-      :host => "localhost",
-      :username => "SYSTEM",
-      :password => "MANAGER",
-    }
-  end
+  @@spec = {
+    :database => "test",
+    :host => "localhost",
+    :username => "SYSTEM",
+    :password => "MANAGER",
+  }
 
-  # Faux test that just checks if we can connect, otherwise the test
-  # suite is aborted.
-  test "aaa connection" do
-    port = 5050
-    begin
-      s = TCPSocket.new @connection[:host], port
-    rescue Errno::ECONNREFUSED, SocketError
-      # No DB appears to be running; fail fatally. Do not run the other tests and just exit.
-      puts "Connection to port #{port} on #{@connection[:host]} could not be established. Check if the Sedna XML database is running before running this test suite."
-      exit 1
-    end
-    assert s
-    s.close
+  # Test the connection before continuing.
+  port = 5050
+  begin
+    socket = TCPSocket.new @@spec[:host], port
+  rescue Errno::ECONNREFUSED, SocketError
+    # No DB appears to be running; fail fatally. Do not run the other tests and just exit.
+    puts "\nConnection to port #{port} on #{@@spec[:host]} could not be established. Check if the Sedna XML database is running before running this test suite.\n\n"
+    exit 1
   end
+  socket.close
   
+  # Create re-usable connection.
+  @@sedna = Sedna.connect @@spec
+
   # Test Sedna.version.
   test "version should return 3 0" do
     assert_equal "3.0", Sedna.version
@@ -85,7 +81,7 @@ class SednaTest < Test::Unit::TestCase
   
   # Test Sedna.connect.
   test "connect should return Sedna object" do
-    sedna = Sedna.connect @connection
+    sedna = Sedna.connect @@spec
     assert_kind_of Sedna, sedna
     sedna.close
   end
@@ -98,32 +94,32 @@ class SednaTest < Test::Unit::TestCase
 
   test "connect should raise exception when host not found" do
     assert_raises Sedna::ConnectionError do
-      Sedna.connect @connection.merge(:host => "non-existent-host")
+      Sedna.connect @@spec.merge(:host => "non-existent-host")
     end
   end
 
   test "connect should raise exception when credentials are incorrect" do
     assert_raises Sedna::AuthenticationError do
-      Sedna.connect @connection.merge(:username => "non-existent-user")
+      Sedna.connect @@spec.merge(:username => "non-existent-user")
     end
   end
   
   test "connect should return nil on error" do
     begin
-      sedna = Sedna.connect @connection.merge(:username => "non-existent-user")
+      sedna = Sedna.connect @@spec.merge(:username => "non-existent-user")
     rescue
     end
     assert_nil sedna
   end
   
   test "connect should return nil if block given" do
-    sedna = Sedna.connect @connection do |s| end
+    sedna = Sedna.connect @@spec do |s| end
     assert_nil sedna
   end
   
   test "connect should close connection after block" do
     sedna = nil
-    Sedna.connect @connection do |s|
+    Sedna.connect @@spec do |s|
       sedna = s
     end
     assert_raises Sedna::ConnectionError do
@@ -134,7 +130,7 @@ class SednaTest < Test::Unit::TestCase
   test "connect should close connection if exception is raised inside block" do
     sedna = nil
     begin
-      Sedna.connect @connection do |s|
+      Sedna.connect @@spec do |s|
         sedna = s
         raise Exception
       end
@@ -148,7 +144,7 @@ class SednaTest < Test::Unit::TestCase
   test "connect should close connection if something is thrown inside block" do
     sedna = nil
     catch :ball do
-      Sedna.connect @connection do |s|
+      Sedna.connect @@spec do |s|
         sedna = s
         throw :ball
       end
@@ -160,7 +156,7 @@ class SednaTest < Test::Unit::TestCase
   
   test "connect should re-raise exceptions from inside block" do
     assert_raises Exception do
-      Sedna.connect @connection do
+      Sedna.connect @@spec do
         raise Exception
       end
     end
@@ -168,12 +164,12 @@ class SednaTest < Test::Unit::TestCase
   
   # Test sedna.close.
   test "close should return nil" do
-    sedna = Sedna.connect @connection
+    sedna = Sedna.connect @@spec
     assert_nil sedna.close
   end
 
   test "close should fail silently if connection is already closed" do
-    sedna = Sedna.connect @connection
+    sedna = Sedna.connect @@spec
     assert_nothing_raised do
       sedna.close
       sedna.close
@@ -182,47 +178,35 @@ class SednaTest < Test::Unit::TestCase
   
   # Test sedna.execute / sedna.query.
   test "execute should raise TypeError if argument cannot be converted to String" do
-    Sedna.connect @connection do |sedna|
-      assert_raises TypeError do
-        sedna.execute Object.new
-      end
+    assert_raises TypeError do
+      @@sedna.execute Object.new
     end
   end
   
   test "execute should return nil for data structure query" do
-    Sedna.connect @connection do |sedna|
-      sedna.execute("drop document '#{__method__}'") rescue Sedna::Exception
-      assert_nil sedna.execute("create document '#{__method__}'")
-      sedna.execute("drop document '#{__method__}'") rescue Sedna::Exception
-    end
+    @@sedna.execute("drop document '#{__method__}'") rescue Sedna::Exception
+    assert_nil @@sedna.execute("create document '#{__method__}'")
+    @@sedna.execute("drop document '#{__method__}'") rescue Sedna::Exception
   end
   
   test "execute should return array for select query" do
-    Sedna.connect @connection do |sedna|
-      assert_kind_of Array, sedna.execute("<test/>")
-    end
+    assert_kind_of Array, @@sedna.execute("<test/>")
   end
   
   test "execute should return array with single string for single select query" do
-    Sedna.connect @connection do |sedna|
-      assert_equal ["<test/>"], sedna.execute("<test/>")
-    end
+    assert_equal ["<test/>"], @@sedna.execute("<test/>")
   end
   
   test "execute should return array with strings for select query" do
-    Sedna.connect @connection do |sedna|
-      assert_equal ["<test/>", "<test/>", "<test/>"], sedna.execute("<test/>, <test/>, <test/>")
-    end
+    assert_equal ["<test/>", "<test/>", "<test/>"], @@sedna.execute("<test/>, <test/>, <test/>")
   end
   
   test "execute should return tainted strings" do
-    Sedna.connect @connection do |sedna|
-      assert sedna.execute("<test/>").first.tainted?
-    end
+    assert @@sedna.execute("<test/>").first.tainted?
   end
 
   test "execute should fail if autocommit is false" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.autocommit = false
       assert_raises Sedna::Exception do
         sedna.execute "<test/>"
@@ -231,15 +215,13 @@ class SednaTest < Test::Unit::TestCase
   end
   
   test "execute should fail with Sedna::Exception for invalid statements" do
-    Sedna.connect @connection do |sedna|
-      assert_raises Sedna::Exception do
-        sedna.execute "INVALID"
-      end
+    assert_raises Sedna::Exception do
+      @@sedna.execute "INVALID"
     end
   end
   
   test "execute should fail with Sedna::ConnectionError if connection is closed" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.close
       assert_raises Sedna::ConnectionError do
         sedna.execute "<test/>"
@@ -248,13 +230,11 @@ class SednaTest < Test::Unit::TestCase
   end
   
   test "execute should strip first newline of all but first results" do
-    Sedna.connect @connection do |sedna|
-      sedna.execute("drop document '#{__method__}'") rescue Sedna::Exception
-      sedna.execute("create document '#{__method__}'")
-      sedna.execute("update insert <test><a>\n\nt</a><a>\n\nt</a><a>\n\nt</a></test> into doc('#{__method__}')")
-      assert_equal ["\n\nt", "\n\nt", "\n\nt"], sedna.execute("doc('#{__method__}')/test/a/text()")
-      sedna.execute("drop document '#{__method__}'") rescue Sedna::Exception
-    end
+    @@sedna.execute("drop document '#{__method__}'") rescue Sedna::Exception
+    @@sedna.execute("create document '#{__method__}'")
+    @@sedna.execute("update insert <test><a>\n\nt</a><a>\n\nt</a><a>\n\nt</a></test> into doc('#{__method__}')")
+    assert_equal ["\n\nt", "\n\nt", "\n\nt"], @@sedna.execute("doc('#{__method__}')/test/a/text()")
+    @@sedna.execute("drop document '#{__method__}'") rescue Sedna::Exception
   end
 
   test "execute should block other threads for ruby 18 and not block for ruby 19" do
@@ -265,7 +245,7 @@ class SednaTest < Test::Unit::TestCase
     end_times = {}
     n.times do |number|
       threads << Thread.new do
-        Sedna.connect @connection do |sedna|
+        Sedna.connect @@spec do |sedna|
           start_times[number] = Time.now
           sedna.execute "for $x in 1 to #{i} where $x = 1 return <node/>"
           end_times[number] = Time.now
@@ -291,122 +271,99 @@ class SednaTest < Test::Unit::TestCase
   end
   
   test "execute should be run in serially if called from different threads on same connection" do
-    Sedna.connect @connection do |sedna|
-      i = 1000
-      threads = []
-      exceptions = []
-      Thread.abort_on_exception = true
-      5.times do
-        threads << Thread.new do
-          begin
-            sedna.execute "for $x in #{i} where $x = 1 return <node/>"
-          rescue StandardError => e
-            exceptions << e
-          end
+    i = 1000
+    threads = []
+    exceptions = []
+    Thread.abort_on_exception = true
+    5.times do
+      threads << Thread.new do
+        begin
+          @@sedna.execute "for $x in #{i} where $x = 1 return <node/>"
+        rescue StandardError => e
+          exceptions << e
         end
       end
-      threads.each do |thread| thread.join end
-      assert_equal [], exceptions
     end
+    threads.each do |thread| thread.join end
+    assert_equal [], exceptions
   end
   
   test "execute should quit if exception is raised in it by another thread in ruby 19" do
-    Sedna.connect @connection do |sedna|
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      begin
-        thread = Thread.new do
-          sedna.execute "create document '#{__method__}'"
-        end
-        thread.raise
-        thread.join
-      rescue
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    begin
+      thread = Thread.new do
+        @@sedna.execute "create document '#{__method__}'"
       end
-      count = sedna.execute("count(doc('$documents')//*[@name='#{__method__}'])").first.to_i
-      if RUBY_VERSION < "1.9"
-        assert_equal 1, count
-      else
-        assert_equal 0, count
-      end
+      thread.raise
+      thread.join
+    rescue
+    end
+    count = @@sedna.execute("count(doc('$documents')//*[@name='#{__method__}'])").first.to_i
+    if RUBY_VERSION < "1.9"
+      assert_equal 1, count
+    else
+      assert_equal 0, count
     end
   end
   
   test "query should be alias of execute" do
-    Sedna.connect @connection do |sedna|
-      assert_equal ["<test/>"], sedna.query("<test/>")
-    end
+    assert_equal ["<test/>"], @@sedna.query("<test/>")
   end
 
   # Test sedna.load_document.
   test "load_document should raise TypeError if document argument cannot be converted to String" do
-    Sedna.connect @connection do |sedna|
-      assert_raises TypeError do
-        sedna.load_document Object.new, __method__.to_s
-      end
+    assert_raises TypeError do
+      @@sedna.load_document Object.new, __method__.to_s
     end
   end
 
   test "load_document should raise TypeError if doc_name argument cannot be converted to String" do
-    Sedna.connect @connection do |sedna|
-      assert_raises TypeError do
-        sedna.load_document "<doc/>", Object.new
-      end
+    assert_raises TypeError do
+      @@sedna.load_document "<doc/>", Object.new
     end
   end
 
   test "load_document should raise TypeError if col_name argument cannot be converted to String" do
-    Sedna.connect @connection do |sedna|
-      assert_raises TypeError do
-        sedna.load_document "<doc/>", __method__.to_s, Object.new
-      end
+    assert_raises TypeError do
+      @@sedna.load_document "<doc/>", __method__.to_s, Object.new
     end
   end
 
   test "load_document should create document in given collection" do
-    Sedna.connect @connection do |sedna|
-      col = "test_collection"
-      doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
-
-      sedna.execute "create collection '#{col}'" rescue Sedna::Exception
-      sedna.execute "drop document '#{__method__}' in collection '#{col}'" rescue Sedna::Exception
-      sedna.load_document doc, __method__.to_s, col
-      assert_equal doc, sedna.execute("doc('#{__method__}', '#{col}')").first
-      sedna.execute "drop document '#{__method__}' in collection '#{col}'" rescue Sedna::Exception
-      sedna.execute "drop collection '#{col}'" rescue Sedna::Exception
-    end
+    col = "test_collection"
+    doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
+    @@sedna.execute "create collection '#{col}'" rescue Sedna::Exception
+    @@sedna.execute "drop document '#{__method__}' in collection '#{col}'" rescue Sedna::Exception
+    @@sedna.load_document doc, __method__.to_s, col
+    assert_equal doc, @@sedna.execute("doc('#{__method__}', '#{col}')").first
+    @@sedna.execute "drop document '#{__method__}' in collection '#{col}'" rescue Sedna::Exception
+    @@sedna.execute "drop collection '#{col}'" rescue Sedna::Exception
   end
 
   test "load_document should create standalone document if collection is unspecified" do
-    Sedna.connect @connection do |sedna|
-      doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
-
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      sedna.load_document doc, __method__.to_s
-      assert_equal doc, sedna.execute("doc('#{__method__}')").first
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-    end
+    doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    @@sedna.load_document doc, __method__.to_s
+    assert_equal doc, @@sedna.execute("doc('#{__method__}')").first
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
   end
   
   test "load_document should create standalone document if collection is nil" do
-    Sedna.connect @connection do |sedna|
-      doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
-
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      sedna.load_document doc, __method__.to_s, nil
-      assert_equal doc, sedna.execute("doc('#{__method__}')").first
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-    end
+    doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    @@sedna.load_document doc, __method__.to_s, nil
+    assert_equal doc, @@sedna.execute("doc('#{__method__}')").first
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
   end
   
   test "load_document should return nil if standalone document loaded successfully" do
-    Sedna.connect @connection do |sedna|
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      assert_nil sedna.load_document("<document><node/></document>", __method__.to_s)
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-    end
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    assert_nil @@sedna.load_document("<document><node/></document>", __method__.to_s)
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
   end
 
   test "load_document should fail if autocommit is false" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.autocommit = false
       assert_raises Sedna::Exception do
         sedna.load_document "<test/>", "some_doc"
@@ -415,26 +372,22 @@ class SednaTest < Test::Unit::TestCase
   end
   
   test "load_document should fail with Sedna::Exception for invalid documents" do
-    Sedna.connect @connection do |sedna|
-      assert_raises Sedna::Exception do
-        sedna.load_document "<doc/> this is an invalid document", "some_doc"
-      end
+    assert_raises Sedna::Exception do
+      @@sedna.load_document "<doc/> this is an invalid document", "some_doc"
     end
   end
   
   test "load_document should raise exception with complete details for invalid documents" do
-    Sedna.connect @connection do |sedna|
-      e = nil
-      begin
-        sedna.load_document "<doc/> junk here", "some_doc"
-      rescue Sedna::Exception => e
-      end
-      assert_match /junk after document element/, e.message
+    e = nil
+    begin
+      @@sedna.load_document "<doc/> junk here", "some_doc"
+    rescue Sedna::Exception => e
     end
+    assert_match /junk after document element/, e.message
   end
   
   test "load_document should fail with Sedna::ConnectionError if connection is closed" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.close
       assert_raises Sedna::ConnectionError do
         sedna.load_document "<doc/>", "some_doc"
@@ -443,71 +396,63 @@ class SednaTest < Test::Unit::TestCase
   end
 
   test "load_document should create document if given document is IO object" do
-    Sedna.connect @connection do |sedna|
-      doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>" << ("\n <some_very_often_repeated_node/>" * 800) << "\n</document>"
-      p_out, p_in = IO.pipe
-      p_in.write doc
-      p_in.close
+    doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>" << ("\n <some_very_often_repeated_node/>" * 800) << "\n</document>"
+    p_out, p_in = IO.pipe
+    p_in.write doc
+    p_in.close
 
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      sedna.load_document p_out, __method__.to_s, nil
-      assert_equal doc.length, sedna.execute("doc('#{__method__}')").first.length
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-    end
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    @@sedna.load_document p_out, __method__.to_s, nil
+    assert_equal doc.length, @@sedna.execute("doc('#{__method__}')").first.length
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
   end
 
   test "load_document should raise Sedna::Exception if given document is empty IO object" do
-    Sedna.connect @connection do |sedna|
-      p_out, p_in = IO.pipe
-      p_in.close
+    p_out, p_in = IO.pipe
+    p_in.close
 
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      e = nil
-      begin
-        sedna.load_document p_out, __method__.to_s, nil
-      rescue Sedna::Exception => e
-      end
-      assert_equal "Document is empty.", e.message
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    e = nil
+    begin
+      @@sedna.load_document p_out, __method__.to_s, nil
+    rescue Sedna::Exception => e
     end
+    assert_equal "Document is empty.", e.message
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
   end
 
   test "load_document should raise Sedna::Exception if given document is empty string" do
-    Sedna.connect @connection do |sedna|
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      e = nil
-      begin
-        sedna.load_document "", __method__.to_s, nil
-      rescue Sedna::Exception => e
-      end
-      assert_equal "Document is empty.", e.message
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    e = nil
+    begin
+      @@sedna.load_document "", __method__.to_s, nil
+    rescue Sedna::Exception => e
     end
+    assert_equal "Document is empty.", e.message
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
   end
   
   # Test sedna.autocommit= / sedna.autocommit.
   test "autocommit should return true by default" do
-    Sedna.connect @connection do |sedna|
-      assert_equal true, sedna.autocommit
-    end
+    assert_equal true, @@sedna.autocommit
   end
   
   test "autocommit should return true if set to true" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.autocommit = true
       assert_equal true, sedna.autocommit
     end
   end
   
   test "autocommit should return false if set to false" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.autocommit = false
       assert_equal false, sedna.autocommit
     end
   end
   
   test "autocommit should return true if set to true after being set to false" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.autocommit = false
       sedna.autocommit = true
       assert_equal true, sedna.autocommit
@@ -515,21 +460,21 @@ class SednaTest < Test::Unit::TestCase
   end
   
   test "autocommit should return true if argument evaluates to true" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.autocommit = "string evaluates to true"
       assert_equal true, sedna.autocommit
     end
   end
   
   test "autocommit should return false if argument evaluates to false" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.autocommit = nil
       assert_equal false, sedna.autocommit
     end
   end
   
   test "autocommit should be re-enabled after transactions" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.autocommit = true
       sedna.transaction do end
       assert_nothing_raised do
@@ -540,21 +485,17 @@ class SednaTest < Test::Unit::TestCase
   
   # Test sedna.transaction.
   test "transaction should return nil if committed" do
-    Sedna.connect @connection do |sedna|
-      assert_nil sedna.transaction(){}
-    end
+    assert_nil @@sedna.transaction(){}
   end
   
   test "transaction should raise LocalJumpError if no block is given" do
     assert_raises LocalJumpError do
-      Sedna.connect @connection do |sedna|
-        sedna.transaction
-      end
+      @@sedna.transaction
     end
   end
   
   test "transaction should be possible with autocommit" do
-    Sedna.connect @connection do |sedna|
+    Sedna.connect @@spec do |sedna|
       sedna.autocommit = true
       assert_nothing_raised do
         sedna.transaction do end
@@ -563,74 +504,62 @@ class SednaTest < Test::Unit::TestCase
   end
   
   test "transaction should fail with Sedna::TransactionError if another transaction is started inside it" do
-    Sedna.connect @connection do |sedna|
-      assert_raises Sedna::TransactionError do
-        sedna.transaction do
-          sedna.transaction do end
-        end
+    assert_raises Sedna::TransactionError do
+      @@sedna.transaction do
+        @@sedna.transaction do end
       end
     end
   end
   
   test "transaction should commit if block given" do
-    Sedna.connect @connection do |sedna|
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      sedna.execute "create document '#{__method__}'"
-      sedna.transaction do
-        sedna.execute "update insert <test>test</test> into doc('#{__method__}')"
-      end
-      assert_equal 1, sedna.execute("count(doc('#{__method__}')/test)").first.to_i
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    @@sedna.execute "create document '#{__method__}'"
+    @@sedna.transaction do
+      @@sedna.execute "update insert <test>test</test> into doc('#{__method__}')"
     end
+    assert_equal 1, @@sedna.execute("count(doc('#{__method__}')/test)").first.to_i
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
   end
 
   test "transaction should rollback if exception is raised inside block" do
-    Sedna.connect @connection do |sedna|
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      sedna.execute "create document '#{__method__}'"
-      begin
-        sedna.transaction do
-          sedna.execute "update insert <test>test</test> into doc('#{__method__}')"
-          raise Exception
-        end
-      rescue Exception
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    @@sedna.execute "create document '#{__method__}'"
+    begin
+      @@sedna.transaction do
+        @@sedna.execute "update insert <test>test</test> into doc('#{__method__}')"
+        raise Exception
       end
-      assert_equal 0, sedna.execute("count(doc('#{__method__}')/test)").first.to_i
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    rescue Exception
     end
+    assert_equal 0, @@sedna.execute("count(doc('#{__method__}')/test)").first.to_i
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
   end
 
   test "transaction should rollback if something is thrown inside block" do
-    Sedna.connect @connection do |sedna|
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
-      sedna.execute "create document '#{__method__}'"
-      catch :ball do
-        sedna.transaction do
-          sedna.execute "update insert <test>test</test> into doc('#{__method__}')"
-          throw :ball
-        end
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
+    @@sedna.execute "create document '#{__method__}'"
+    catch :ball do
+      @@sedna.transaction do
+        @@sedna.execute "update insert <test>test</test> into doc('#{__method__}')"
+        throw :ball
       end
-      assert_equal 0, sedna.execute("count(doc('#{__method__}')/test)").first.to_i
-      sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
     end
+    assert_equal 0, @@sedna.execute("count(doc('#{__method__}')/test)").first.to_i
+    @@sedna.execute "drop document '#{__method__}'" rescue Sedna::Exception
   end
 
   test "transaction should raise Sedna::TransactionError if invalid statement caused exception but it was rescued" do
-    Sedna.connect @connection do |sedna|
-      assert_raises Sedna::TransactionError do
-        sedna.transaction do
-          sedna.execute "FAILS" rescue Sedna::Exception
-        end
+    assert_raises Sedna::TransactionError do
+      @@sedna.transaction do
+        @@sedna.execute "FAILS" rescue Sedna::Exception
       end
     end
   end
   
   test "transaction should re-raise exceptions from inside block" do
-    Sedna.connect @connection do |sedna|
-      assert_raises Exception do
-        sedna.transaction do
-          raise Exception
-        end
+    assert_raises Exception do
+      @@sedna.transaction do
+        raise Exception
       end
     end
   end
@@ -638,10 +567,8 @@ class SednaTest < Test::Unit::TestCase
   test "transaction with invalid statements should cause transaction to roll back once" do
     exc = nil
     begin
-      Sedna.connect @connection do |sedna|
-        sedna.transaction do
-          sedna.execute "FAILS"
-        end
+      @@sedna.transaction do
+        @@sedna.execute "FAILS"
       end
     rescue Sedna::Exception => exc
     end
@@ -649,23 +576,21 @@ class SednaTest < Test::Unit::TestCase
   end
   
   test "transaction should raise Sedna::TransactionError if called from different threads on same connection" do
-    Sedna.connect @connection do |sedna|
-      threads = []
-      exceptions = []
-      Thread.abort_on_exception = true
-      5.times do
-        threads << Thread.new do
-          begin
-            sedna.transaction do
-              sleep 0.1
-            end
-          rescue StandardError => e
-            exceptions << e.class
+    threads = []
+    exceptions = []
+    Thread.abort_on_exception = true
+    5.times do
+      threads << Thread.new do
+        begin
+          @@sedna.transaction do
+            sleep 0.1
           end
+        rescue StandardError => e
+          exceptions << e.class
         end
       end
-      threads.each do |thread| thread.join end
-      assert_equal [Sedna::TransactionError] * 4, exceptions
     end
+    threads.each do |thread| thread.join end
+    assert_equal [Sedna::TransactionError] * 4, exceptions
   end
 end
