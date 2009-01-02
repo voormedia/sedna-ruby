@@ -593,4 +593,14 @@ class SednaTest < Test::Unit::TestCase
     threads.each do |thread| thread.join end
     assert_equal [Sedna::TransactionError] * 4, exceptions
   end
+
+  test "transaction should raise Sedna::Exception if connection is closed before it could be committed" do
+    sedna = Sedna.connect @@spec
+    assert_raises Sedna::Exception do
+      sedna.transaction do
+        sedna.execute "<test/>"
+        sedna.close
+      end
+    end
+  end
 end
