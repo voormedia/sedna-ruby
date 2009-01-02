@@ -393,6 +393,21 @@ static VALUE cSedna_s_blocking(VALUE klass)
 
 /*
  * call-seq:
+ *   sedna.connected? -> true or false
+ *
+ * Returns +true+ if the connection is connected and functioning properly. Returns
+ * +false+ if the connection has been closed by the client or by the server.
+ */
+static VALUE cSedna_connected(VALUE self)
+{
+	int res;
+	SC *conn = sedna_struct(self);
+	
+	return (SEconnectionStatus(conn) == SEDNA_CONNECTION_OK) ? Qtrue : Qfalse;
+}
+
+/*
+ * call-seq:
  *   sedna.execute(query) -> array or nil
  *   sedna.query(query) -> array or nil
  *
@@ -636,6 +651,7 @@ void Init_sedna()
 	rb_define_singleton_method(cSedna, "blocking?", cSedna_s_blocking, 0);
 
 	rb_define_method(cSedna, "initialize", cSedna_initialize, 1);
+	rb_define_method(cSedna, "connected?", cSedna_connected, 0);
 	rb_define_method(cSedna, "execute", cSedna_execute, 1);
 	rb_define_method(cSedna, "load_document", cSedna_load_document, -1);
 	rb_define_method(cSedna, "close", cSedna_close, 0);

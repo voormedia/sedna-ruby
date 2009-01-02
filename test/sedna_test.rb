@@ -184,6 +184,17 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
+  # Test sedna.connected?.
+  test "connected? should return true if connected" do
+    assert_equal true, @@sedna.connected?
+  end
+  
+  test "connected? should return false if closed" do
+    sedna = Sedna.connect @@spec
+    sedna.close
+    assert_equal false, sedna.connected?
+  end
+  
   # Test sedna.execute / sedna.query.
   test "execute should raise TypeError if argument cannot be converted to String" do
     assert_raises TypeError do
