@@ -208,7 +208,7 @@ class SednaTest < Test::Unit::TestCase
     @@sedna.execute("drop document '#{__method__}'") rescue Sedna::Exception
   end
   
-  test "execute should return array for select query" do
+  test "execute should return subclass of array for select query" do
     assert_kind_of Array, @@sedna.execute("<test/>")
   end
   

@@ -73,7 +73,7 @@ typedef struct SednaConnection SC;
 
 // Ruby classes.
 static VALUE cSedna;
-//static VALUE cSednaSet; //Unused so far.
+//static VALUE cSednaSet; // Stick to Array for result sets.
 static VALUE cSednaException;
 static VALUE cSednaAuthError;
 static VALUE cSednaConnError;
@@ -194,6 +194,7 @@ static VALUE sedna_read(SC *conn, int strip_n)
 static VALUE sedna_get_results(SC *conn)
 {
 	int res, strip_n = 0;
+	// Can be replaced with: rb_funcall(cSednaSet, rb_intern("new"), 0, NULL);
 	VALUE set = rb_ary_new();
 
 	while((res = SEnext(conn)) != SEDNA_RESULT_END) {
@@ -680,9 +681,12 @@ void Init_sedna()
 	rb_define_method(cSedna, "autocommit", cSedna_autocommit_get, 0);
 
 	/*
-	 * The result set of a database query.
+	 * The result of a database query is stored in a Sedna::Set object, which
+	 * is a subclass of Array. Additional details about the executed query, such
+	 * as timing and debug information, may be added to Sedna::Set objects in
+	 * future versions of this library.
 	 */
-	// Unused so far...
+	// Stick to Array for result sets.
 	//cSednaSet = rb_define_class_under(cSedna, "Set", rb_cArray);
 
 	/*
