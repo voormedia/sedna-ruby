@@ -112,6 +112,14 @@ class SednaTest < Test::Unit::TestCase
     assert_nil sedna
   end
   
+  test "connect should not execute block if connection fails" do
+    assert_nothing_raised do
+      sedna = Sedna.connect @@spec.merge(:username => "non-existent-user") do
+        raise "block should not be run"
+      end rescue Sedna::AuthenticationError
+    end
+  end
+  
   test "connect should return nil if block given" do
     sedna = Sedna.connect @@spec do |s| end
     assert_nil sedna
