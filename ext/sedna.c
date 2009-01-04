@@ -478,7 +478,6 @@ static VALUE cSedna_s_blocking(VALUE klass)
  */
 static VALUE cSedna_connected(VALUE self)
 {
-	int res;
 	SC *conn = sedna_struct(self);
 	
 	// Return true if the connection status is OK. This only indicates that the
