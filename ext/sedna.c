@@ -507,13 +507,13 @@ static VALUE cSedna_reset(VALUE self)
  *
  * Call without a block and close the connection afterwards.
  *
- *   sedna = Sedna.connect(:database => "my_db", :host => "my_host")
+ *   sedna = Sedna.connect :database => "my_db", :host => "my_host"
  *   # Query the database and close afterwards.
  *   sedna.close
  *
  * Call with a block. The connection is closed automatically.
  *
- *   Sedna.connect(:database => "my_db", :host => "my_host") do |sedna|
+ *   Sedna.connect :database => "my_db", :host => "my_host" do |sedna|
  *     # Query the database.
  *     # The connection is closed automatically.
  *   end
@@ -925,7 +925,8 @@ void Init_sedna()
 	 *     :username => "SYSTEM",
 	 *     :password => "MANAGER",
 	 *   }
-	 *   Sedna.connect(connection_details) do |sedna|
+	 *
+	 *   Sedna.connect connection_details do |sedna|
 	 *     # Query the database.
 	 *     # The connection is closed automatically.
 	 *   end

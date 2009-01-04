@@ -67,7 +67,8 @@ using it.
 
 To start querying a database, create a new connection with the Sedna.connect
 method. When a block is given, the Sedna connection object will be returned
-which can be used to execute database statements.
+which can be used to execute database statements. See the documentation of the
+Sedna class for more details.
 
   connection_details = {
     :database => "my_db",
@@ -75,13 +76,36 @@ which can be used to execute database statements.
     :username => "SYSTEM",
     :password => "MANAGER",
   }
-  Sedna.connect(connection_details) do |sedna|
+
+  Sedna.connect connection_details do |sedna|
     # Start querying the database.
-    sedna.execute("create document 'mydoc'")                                  #=> nil
-    sedna.execute("update insert <msg>Hello world!</msg> into doc('mydoc')")  #=> nil
-    sedna.execute("doc('mydoc')/msg/text()")                                  #=> ["Hello world!"]
+    sedna.execute "create document 'my_doc'"                                  #=> nil
+    sedna.execute "update insert <msg>Hello world!</msg> into doc('my_doc')"  #=> nil
+    sedna.execute "doc('my_doc')/msg/text()"                                  #=> ["Hello world!"]
     # The connection is closed automatically for us.
   end
 
-See the documentation of the Sedna class -- the methods Sedna.connect and
-Sedna#execute in particular -- for more details.
+Use Sedna#load_document to load a document into the database from a string or
+file.
+
+  sedna.load_document "<msg>Hello world!</msg>", "my_doc", "my_collection"
+  sedna.execute "doc('my_doc', 'my_collection')/msg/text()"                   #=> ["Hello world!"]
+
+  File.open "document.xml" do |file|
+    sedna.load_document file, "my_doc2", "my_collection"
+  end
+  
+Use Sedna#transaction to wrap multiple database statements in a transaction.
+This ensures that either all or none of these statements are executed. If
+something goes wrong halfway, the previously executed statements that are part
+of the transaction will be rolled back.
+
+  sedna.transaction do
+    amount = 100
+    sedna.execute "update replace $balance in doc('my_account')/balance
+                   with <balance>{$balance - #{amount}}</balance>"
+    sedna.execute "update replace $balance in doc('your_account')/balance
+                   with <balance>{$balance + #{amount}}</balance>"
+    # If the second statement fails, the first will be rolled back. Only if
+    # both statements succeed will the changes become permanent.
+  end
