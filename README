@@ -16,7 +16,7 @@ at http://modis.ispras.ru/sedna
 
 Author: Rolf Timmermans (r.timmermans <i>at</i> voormedia.com)
 
-Copyright 2008 Voormedia B.V.
+Copyright 2008, 2009 Voormedia B.V.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,9 +32,8 @@ limitations under the License.
 
 === Current version
 
-The current version of this library is 0.3.0. This release is a <b>beta version</b>.
-The API may change significantly between minor versions. For a complete overview
-all recent and previous changes, see CHANGES.
+The current version of this library is 0.4.0. This release is a <b>beta version</b>.
+For a complete overview all recent and previous changes, see CHANGES.
 
 === Requirements
 

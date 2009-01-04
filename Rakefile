@@ -1,4 +1,4 @@
-# Copyright 2008 Voormedia B.V.
+# Copyright 2008, 2009 Voormedia B.V.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ end
 
 gem_spec = Gem::Specification.new do |s|
   s.name = "sedna"
-  s.version = "0.3.0"
+  s.version = "0.4.0"
 
   s.summary = "Sedna XML DBMS client library."
   s.description = %{Ruby extension that provides a client library for the Sedna XML DBMS, making use of the official C driver of the Sedna project.}
