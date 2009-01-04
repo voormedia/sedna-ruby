@@ -65,7 +65,7 @@ class SednaTest < Test::Unit::TestCase
   
   # Test Sedna.blocking?
   test "blocking should return true if ruby 18 and false if ruby 19" do
-    if RUBY_VERSION < "1.9"
+    if RUBY_VERSION < "1.9.1"
       assert Sedna.blocking?
     else
       assert !Sedna.blocking?

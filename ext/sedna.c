@@ -94,7 +94,7 @@ typedef struct SednaConnArgs SCA;
 #endif
 
 // Define whether or not non-blocking behaviour will be built in.
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+#if defined(HAVE_RB_THREAD_BLOCKING_REGION) && defined(HAVE_RB_MUTEX_SYNCHRONIZE)
 	#define NON_BLOCKING 1
 	#define SEDNA_BLOCKING Qfalse
 #else

@@ -30,7 +30,7 @@ RDOC_FILES = FileList["[A-Z][A-Z]*", "ext/**/*.c"].to_a
 task :default => [:rebuild, :test]
 
 task :multi do
-  exec "export EXCLUDED_VERSIONS=v1_9_0 && multiruby -S rake"
+  exec "multiruby -S rake"
 end
 
 desc "Build the Ruby extension"
