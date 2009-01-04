@@ -49,11 +49,19 @@
 #define PROTO_TO_STRING(s) PROTO_STRINGIFY(s)
 #define PROTOCOL_VERSION PROTO_TO_STRING(SE_CURRENT_SOCKET_PROTOCOL_VERSION_MAJOR) "." PROTO_TO_STRING(SE_CURRENT_SOCKET_PROTOCOL_VERSION_MINOR)
 
-// Default connection arguments
+// Default connection arguments.
 #define DEFAULT_HOST "localhost"
-#define DEFAULT_DATABASE "test"
+#define DEFAULT_DB "test"
 #define DEFAULT_USER "SYSTEM"
-#define DEFAULT_PASSWORD "MANAGER"
+#define DEFAULT_PW "MANAGER"
+
+// Instance variable names.
+#define IV_HOST "@host"
+#define IV_DB "@database"
+#define IV_USER "@username"
+#define IV_PW "@password"
+#define IV_AUTOCOMMIT "@autocommit"
+#define IV_MUTEX "@mutex"
 
 // Define a shorthand for the common SednaConnection structure.
 typedef struct SednaConnection SC;
@@ -145,6 +153,32 @@ static void sedna_free(SC *conn)
 // Mark any references to other objects for Ruby GC (if any).
 static void sedna_mark(SC *conn)
 { /* Unused. */ }
+
+// Connect to the server.
+static void sedna_connect(SC *conn, char *host, char *db, char *user, char *pw)
+{
+	int res = SEconnect(conn, host, db, user, pw);
+	if(res != SEDNA_SESSION_OPEN) {
+		// We have to set the connection status to closed explicitly here,
+		// because the GC routine sedna_free() will test for this status, but
+		// the socket is already closed by SEconnect(). If we do not change the
+		// status, sedna_free() will attempt to close the connection again by
+		// calling SEclose(), which will definitely lead to unpredictable
+		// results.
+		conn->isConnectionOk = SEDNA_CONNECTION_CLOSED;
+		sedna_err(conn, res);
+	}
+}
+
+// Close the connection to the server.
+static void sedna_close(SC *conn)
+{
+	int res;
+	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_CLOSED) {
+		res = SEclose(conn);
+		VERIFY_RES(SEDNA_SESSION_CLOSED, res, conn);
+	}
+}
 
 #ifdef NON_BLOCKING
 static int sedna_blocking_execute(SQ *q)
@@ -252,43 +286,45 @@ static VALUE cSedna_s_new(VALUE klass)
 
 /* :nodoc:
  *
- * Initialize a new instance of Sedna.
+ * Initialize a new instance of Sedna. Undocumented, because Sedna.connect should
+ * be used instead.
  */
 static VALUE cSedna_initialize(VALUE self, VALUE options)
 {
-	int res;
 	VALUE host_k, db_k, user_k, pw_k, host_v, db_v, user_v, pw_v;
 	char *host, *db, *user, *pw;
 	SC *conn = sedna_struct(self);
 
+	// Ensure the argument is a Hash.
 	Check_Type(options, T_HASH);
+	
+	// Store the symbols of the valid hash keys.
 	host_k = ID2SYM(rb_intern("host"));
 	db_k = ID2SYM(rb_intern("database"));
 	user_k = ID2SYM(rb_intern("username"));
 	pw_k = ID2SYM(rb_intern("password"));
 
+	// Get the connection details or set them to the default values if not given.
 	if(NIL_P(host_v = rb_hash_aref(options, host_k))) host = DEFAULT_HOST; else host = STR2CSTR(host_v);
-	if(NIL_P(db_v = rb_hash_aref(options, db_k))) db = DEFAULT_DATABASE; else db = STR2CSTR(db_v);
+	if(NIL_P(db_v = rb_hash_aref(options, db_k))) db = DEFAULT_DB; else db = STR2CSTR(db_v);
 	if(NIL_P(user_v = rb_hash_aref(options, user_k))) user = DEFAULT_USER; else user = STR2CSTR(user_v);
-	if(NIL_P(pw_v = rb_hash_aref(options, pw_k))) pw = DEFAULT_PASSWORD; else pw = STR2CSTR(pw_v);
+	if(NIL_P(pw_v = rb_hash_aref(options, pw_k))) pw = DEFAULT_PW; else pw = STR2CSTR(pw_v);
+	
+	// Save all connection details to instance variables.
+	rb_iv_set(self, IV_HOST, rb_str_new2(host));
+	rb_iv_set(self, IV_DB, rb_str_new2(db));
+	rb_iv_set(self, IV_USER, rb_str_new2(user));
+	rb_iv_set(self, IV_PW, rb_str_new2(pw));
 
-	res = SEconnect(conn, host, db, user, pw);
-	if(res != SEDNA_SESSION_OPEN) {
-		// We have to set the connection status to closed explicitly here,
-		// because the GC routine sedna_free() will test for this status, but
-		// the socket is already closed by SEconnect(). If we do not change the
-		// status, sedna_free() will attempt to close the connection again by
-		// calling SEclose(), which will definitely lead to unpredictable
-		// results.
-		conn->isConnectionOk = SEDNA_CONNECTION_CLOSED;
-		sedna_err(conn, res);
-	}
+	// Connect to the database.
+	sedna_connect(conn, host, db, user, pw);
 
-	// Initialize @autocommit to true (default argument).
-	rb_iv_set(self, "@autocommit", Qtrue);
+	// Initialize @autocommit to true.
+	rb_iv_set(self, IV_AUTOCOMMIT, Qtrue);
 
 #ifdef NON_BLOCKING
-	rb_iv_set(self, "@mutex", rb_mutex_new());
+	// Create a mutex if this build supports non-blocking queries.
+	rb_iv_set(self, IV_MUTEX, rb_mutex_new());
 #endif
 
 	return self;
@@ -298,20 +334,52 @@ static VALUE cSedna_initialize(VALUE self, VALUE options)
  * call-seq:
  *   sedna.close -> nil
  *
- * Closes an open Sedna connection. If the connection was already closed when
+ * Closes an open Sedna connection. If the connection is already closed when
  * this method is called, nothing happens. A Sedna::ConnectionError is raised
  * if the connection was open but could not be closed.
  */
 static VALUE cSedna_close(VALUE self)
 {
-	int res;
 	SC *conn = sedna_struct(self);
+	
+	// Ensure the connection is closed.
+	sedna_close(conn);
+	
+	// Always return nil if successful.
+	return Qnil;
+}
 
-	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_CLOSED) {
-		res = SEclose(conn);
-		VERIFY_RES(SEDNA_SESSION_CLOSED, res, conn);
-	}
+/*
+ * call-seq:
+ *   sedna.reset -> nil
+ *
+ * Closes an open Sedna connection and reconnects. If the connection is already
+ * closed when this method is called, the connection is just reestablished. When
+ * reconnecting, the same connection details are used that were given when initially
+ * connecting with the connect method.
+ *
+ * If the connection could not be closed or reopened, a Sedna::ConnectionError is
+ * raised. If the authentication fails when reconnecting, a
+ * Sedna::AuthenticationError is raised.
+ */
+static VALUE cSedna_reset(VALUE self)
+{
+	char *host, *db, *user, *pw;
+	SC *conn = sedna_struct(self);
+	
+	// First ensure the current connection is closed.
+	sedna_close(conn);
 
+	// Retrieve stored connection details.
+	host = STR2CSTR(rb_iv_get(self, IV_HOST));
+	db = STR2CSTR(rb_iv_get(self, IV_DB));
+	user = STR2CSTR(rb_iv_get(self, IV_USER));
+	pw = STR2CSTR(rb_iv_get(self, IV_PW));
+	
+	// Connect again.
+	sedna_connect(conn, host, db, user, pw);
+
+	// Always return nil if successful.
 	return Qnil;
 }
 
@@ -354,15 +422,24 @@ static VALUE cSedna_close(VALUE self)
 static VALUE cSedna_s_connect(VALUE klass, VALUE options)
 {
 	int status;
+	
+	// Create a new instance.
 	VALUE obj = rb_funcall(klass, rb_intern("new"), 1, options);
 
 	if(rb_block_given_p()) {
+		// If a block is given, yield the instance, and make sure we always return...
 		rb_protect(rb_yield, obj, &status);
+		
+		// ...to ensure that the connection is closed afterwards.
 		cSedna_close(obj);
-		if(status != 0) rb_jump_tag(status); // Re-raise any exception.
+		
+		// Re-raise any exception.
+		if(status != 0) rb_jump_tag(status);
 
+		// Always return nil if successful.
 		return Qnil;
 	} else {
+		// If no block is given, simply return the instance.
 		return obj;
 	}
 }
@@ -397,13 +474,15 @@ static VALUE cSedna_s_blocking(VALUE klass)
  *   sedna.connected? -> true or false
  *
  * Returns +true+ if the connection is connected and functioning properly. Returns
- * +false+ if the connection has been closed by the client or by the server.
+ * +false+ if the connection has been closed.
  */
 static VALUE cSedna_connected(VALUE self)
 {
 	int res;
 	SC *conn = sedna_struct(self);
 	
+	// Return true if the connection status is OK. This only indicates that the
+	// client still thinks it is connected.
 	return (SEconnectionStatus(conn) == SEDNA_CONNECTION_OK) ? Qtrue : Qfalse;
 }
 
@@ -448,12 +527,15 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 	int res;
 	SC *conn = sedna_struct(self);
 
+	// Verify that the connection is OK.
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
 
 #ifdef NON_BLOCKING
 	// Non-blocking variant for >= 1.9.
 	SQ q = { conn, STR2CSTR(query) };
-	res = rb_mutex_synchronize(rb_iv_get(self, "@mutex"), (void*)sedna_execute, (VALUE)&q);
+	
+	// Synchronize across threads using this instance and execute.
+	res = rb_mutex_synchronize(rb_iv_get(self, IV_MUTEX), (void*)sedna_execute, (VALUE)&q);
 #else
 	// Blocking variant for < 1.9.
 	res = SEexecute(conn, STR2CSTR(query));
@@ -461,11 +543,14 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 
 	switch(res) {
 		case SEDNA_QUERY_SUCCEEDED:
+			// Return the results if this was a query.
 			return sedna_get_results(conn);
 		case SEDNA_UPDATE_SUCCEEDED:
 		case SEDNA_BULK_LOAD_SUCCEEDED:
+			// Return nil if this was an update or bulk load.
 			return Qnil;
 		default:
+			// Raise an exception if something else happened.
 			sedna_err(conn, res);
 			return Qnil;
 	}
@@ -506,29 +591,41 @@ static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 	VALUE document, doc_name, col_name, buf;
 	char *doc_name_c, *col_name_c;
 
+	// Verify that the connection is OK.
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
 
-	rb_scan_args(argc, argv, "21", &document, &doc_name, &col_name); // 2 mandatory args, 1 optional.
+	// 2 mandatory arguments, 1 optional.
+	rb_scan_args(argc, argv, "21", &document, &doc_name, &col_name);
 	doc_name_c = STR2CSTR(doc_name);
 	col_name_c = NIL_P(col_name) ? NULL : STR2CSTR(col_name);
 
 	if(TYPE(document) == T_FILE) {
+		// If the document is an IO object...
 		while(!NIL_P(buf = rb_funcall(document, rb_intern("read"), 1, INT2NUM(LOAD_BUF_LEN)))) {
+			// ...read from it until we reach EOF and load the data.
 			res = SEloadData(conn, STR2CSTR(buf), RSTRING_LEN(buf), doc_name_c, col_name_c);
 			VERIFY_RES(SEDNA_DATA_CHUNK_LOADED, res, conn);
 		}
+
+		// If there is no data, raise an exception.
 		if(res == 0) rb_raise(cSednaException, "Document is empty.");
 	} else {
+		// If the document is not an IO object, verify it is a string instead.
 		Check_Type(document, T_STRING);
+		
+		// If there is no data, raise an exception.
 		if(RSTRING_LEN(document) == 0) rb_raise(cSednaException, "Document is empty.");
 
+		// Load the data.
 		res = SEloadData(conn, STR2CSTR(document), RSTRING_LEN(document), doc_name_c, col_name_c);
 		VERIFY_RES(SEDNA_DATA_CHUNK_LOADED, res, conn);
 	}
 
+	// Signal that we're finished.
 	res = SEendLoadData(conn);
 	VERIFY_RES(SEDNA_BULK_LOAD_SUCCEEDED, res, conn);
 
+	// Always return nil if successful.
 	return Qnil;
 }
 
@@ -541,9 +638,13 @@ static VALUE cSedna_autocommit_set(VALUE self, VALUE auto_commit)
 	int val = (RTEST(auto_commit) ? Qtrue : Qfalse);
 	SC *conn = sedna_struct(self);
 
+	// Switch autocommit mode on or off.
 	SWITCH_SEDNA_AUTOCOMMIT(conn, val);
-	rb_iv_set(self, "@autocommit", val);
+	
+	// Set the instance variable accordingly so it can be re-set after a transaction.
+	rb_iv_set(self, IV_AUTOCOMMIT, val);
 
+	// Always return nil if successful.
 	return Qnil;
 }
 
@@ -553,7 +654,7 @@ static VALUE cSedna_autocommit_set(VALUE self, VALUE auto_commit)
  */
 static VALUE cSedna_autocommit_get(VALUE self)
 {
-	return rb_iv_get(self, "@autocommit");
+	return rb_iv_get(self, IV_AUTOCOMMIT);
 }
 
 /*
@@ -598,26 +699,41 @@ static VALUE cSedna_transaction(VALUE self)
 	int status;
 	SC *conn = sedna_struct(self);
 
+	// Disable autocommit mode.
 	SEDNA_AUTOCOMMIT_DISABLE(conn);
+	
+	// Begin the transaction.
 	sedna_tr_begin(conn);
 
+	// Yield to the given block and protect it so we can always commit or rollback.
 	rb_protect(rb_yield, Qnil, &status);
 
 	if(status == 0) {
-		// Attempt to commit.
-		if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) sedna_tr_commit(conn);
-		else rb_raise(cSednaTrnError, "The transaction was prematurely ended, but no error was encountered. Did you rescue an exception inside the transaction?");
+		if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) {
+			// Attempt to commit if block completed successfully.
+			sedna_tr_commit(conn);
 
-		SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, "@autocommit"));
+			// Turn autocommit back on if it was set.
+			SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, IV_AUTOCOMMIT));
+		} else {
+			// Turn autocommit back on if it was set.
+			SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, IV_AUTOCOMMIT));
+
+			// If there is no current transaction, raise an error.
+			rb_raise(cSednaTrnError, "The transaction was prematurely ended, but no error was encountered. Did you rescue an exception or reset the connection inside the transaction?");
+		}
 	} else {
-		// Stack has unwinded, attempt to roll back.
+		// Stack has unwinded, attempt to roll back!
 		if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) sedna_tr_rollback(conn);
 
-		SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, "@autocommit"));
+		// Turn autocommit back on if it was set.
+		SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, IV_AUTOCOMMIT));
 
-		rb_jump_tag(status); // Re-raise exception.
+		// Re-raise any exception or re-throw whatever was thrown.
+		rb_jump_tag(status);
 	}
 
+	// Always return nil if successful.
 	return Qnil;
 }
 
@@ -653,12 +769,12 @@ void Init_sedna()
 
 	rb_define_method(cSedna, "initialize", cSedna_initialize, 1);
 	rb_define_method(cSedna, "connected?", cSedna_connected, 0);
-	rb_define_method(cSedna, "execute", cSedna_execute, 1);
-	rb_define_method(cSedna, "load_document", cSedna_load_document, -1);
 	rb_define_method(cSedna, "close", cSedna_close, 0);
+	rb_define_method(cSedna, "reset", cSedna_reset, 0);
 	rb_define_method(cSedna, "transaction", cSedna_transaction, 0);
-
+	rb_define_method(cSedna, "execute", cSedna_execute, 1);
 	rb_define_undocumented_alias(cSedna, "query", "execute");
+	rb_define_method(cSedna, "load_document", cSedna_load_document, -1);
 
 	/*
 	 * Document-attr: autocommit
