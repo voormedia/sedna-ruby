@@ -79,6 +79,16 @@ typedef struct SednaConnection SC;
 	#define SEDNA_BLOCKING Qtrue
 #endif
 
+// Always create UTF-8 strings with STR_CAT, if supported (Ruby 1.9).
+#ifdef HAVE_RB_ENC_STR_BUF_CAT
+	#ifndef RUBY_ENCODING_H
+		#include "ruby/encoding.h"
+	#endif
+	#define STR_CAT(str, buf, bytes) rb_enc_str_buf_cat(str, buf, bytes, rb_utf8_encoding())
+#else
+	#define STR_CAT(str, buf, bytes) rb_str_buf_cat(str, buf, bytes)
+#endif
+
 // Ruby classes.
 static VALUE cSedna;
 //static VALUE cSednaSet; // Stick to Array for result sets.
@@ -211,11 +221,11 @@ static VALUE sedna_read(SC *conn, int strip_n)
 					// except the first. Strip them! This a known issue in the
 					// network protocol and serialization mechanism.
 					// See: http://sourceforge.net/mailarchive/forum.php?thread_name=3034886f0812030132v3bbd8e2erd86480d3dc640664%40mail.gmail.com&forum_name=sedna-discussion
-					rb_str_buf_cat(str, buffer + 1, bytes_read - 1);
+					STR_CAT(str, buffer + 1, bytes_read - 1);
 					// Do not strip newlines from subsequent buffer reads.
 					strip_n = 0;
 				} else {
-					rb_str_buf_cat(str, buffer, bytes_read);
+					STR_CAT(str, buffer, bytes_read);
 				}
 			}
 		}

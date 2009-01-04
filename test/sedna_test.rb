@@ -285,6 +285,11 @@ class SednaTest < Test::Unit::TestCase
   test "execute should return tainted strings" do
     assert @@sedna.execute("<test/>").first.tainted?
   end
+  
+  test "execute should return utf-8 strings" do
+    str = "<utf8> Ѩ 乗 </utf8>"
+    assert_equal [str], @@sedna.execute(str)
+  end
 
   test "execute should fail if autocommit is false" do
     Sedna.connect @@spec do |sedna|
