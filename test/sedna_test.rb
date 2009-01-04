@@ -356,7 +356,7 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
-  test "execute should be run in serially if called from different threads on same connection" do
+  test "execute should be run serially if called from different threads on same connection" do
     i = 1000
     threads = []
     exceptions = []
