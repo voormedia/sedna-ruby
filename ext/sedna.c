@@ -66,15 +66,27 @@
 // Define a shorthand for the common SednaConnection structure.
 typedef struct SednaConnection SC;
 
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
-	#define NON_BLOCKING
-	#define SEDNA_BLOCKING Qfalse
+// Define a struct for database queries.
+struct SednaQuery {
+	void *conn;
+	void *query;
+};
+typedef struct SednaQuery SQ;
 
-	struct SednaQuery {
-		void *conn;
-		void *query;
-	};
-	typedef struct SednaQuery SQ;
+// Define a struct for database connection arguments.
+struct SednaConnArgs {
+	void *conn;
+	void *host;
+	void *db;
+	void *user;
+	void *pw;
+};
+typedef struct SednaConnArgs SCA;
+
+// Define whether or not non-blocking behaviour will be built in.
+#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+	#define NON_BLOCKING 1
+	#define SEDNA_BLOCKING Qfalse
 #else
 	#define SEDNA_BLOCKING Qtrue
 #endif
@@ -87,6 +99,26 @@ typedef struct SednaConnection SC;
 	#define STR_CAT(str, buf, bytes) rb_enc_str_buf_cat(str, buf, bytes, rb_utf8_encoding())
 #else
 	#define STR_CAT(str, buf, bytes) rb_str_buf_cat(str, buf, bytes)
+#endif
+
+// Define execute function.
+#ifdef NON_BLOCKING
+	// Non-blocking variant for >= 1.9.
+	// Synchronize across threads using this instance and execute.
+	#define SEDNA_EXECUTE(self, q) rb_mutex_synchronize(rb_iv_get(self, IV_MUTEX), (void*)sedna_non_blocking_execute, (VALUE)q);
+#else
+	// Blocking variant for < 1.9.
+	#define SEDNA_EXECUTE(self, q) sedna_blocking_execute(q);
+#endif
+
+// Define connect function.
+#ifdef NON_BLOCKING
+	// Non-blocking variant for >= 1.9.
+	// Synchronize across threads using this instance and execute.
+	#define SEDNA_CONNECT(self, c) rb_mutex_synchronize(rb_iv_get(self, IV_MUTEX), (void*)sedna_non_blocking_connect, (VALUE)c);
+#else
+	// Blocking variant for < 1.9.
+	#define SEDNA_CONNECT(self, c) sedna_blocking_connect(c);
 #endif
 
 // Ruby classes.
@@ -165,9 +197,21 @@ static void sedna_mark(SC *conn)
 { /* Unused. */ }
 
 // Connect to the server.
-static void sedna_connect(SC *conn, char *host, char *db, char *user, char *pw)
+static int sedna_blocking_connect(SCA *c)
 {
-	int res = SEconnect(conn, host, db, user, pw);
+	return SEconnect(c->conn, c->host, c->db, c->user, c->pw);
+}
+
+#ifdef NON_BLOCKING
+static int sedna_non_blocking_connect(SCA *c)
+{
+	return rb_thread_blocking_region((void*)sedna_blocking_connect, c, RUBY_UBF_IO, NULL);
+}
+#endif
+
+static void sedna_connect(VALUE self, SCA *c)
+{
+	int res = SEDNA_CONNECT(self, c);
 	if(res != SEDNA_SESSION_OPEN) {
 		// We have to set the connection status to closed explicitly here,
 		// because the GC routine sedna_free() will test for this status, but
@@ -175,8 +219,8 @@ static void sedna_connect(SC *conn, char *host, char *db, char *user, char *pw)
 		// status, sedna_free() will attempt to close the connection again by
 		// calling SEclose(), which will definitely lead to unpredictable
 		// results.
-		conn->isConnectionOk = SEDNA_CONNECTION_CLOSED;
-		sedna_err(conn, res);
+		((SC*)c->conn)->isConnectionOk = SEDNA_CONNECTION_CLOSED;
+		sedna_err(c->conn, res);
 	}
 }
 
@@ -189,18 +233,6 @@ static void sedna_close(SC *conn)
 		VERIFY_RES(SEDNA_SESSION_CLOSED, res, conn);
 	}
 }
-
-#ifdef NON_BLOCKING
-static int sedna_blocking_execute(SQ *q)
-{
-	return SEexecute(q->conn, q->query);
-}
-
-static int sedna_execute(SQ *q)
-{
-	return rb_thread_blocking_region((void*)sedna_blocking_execute, q, RUBY_UBF_IO, NULL);
-}
-#endif
 
 // Read one record completely and return it as a Ruby String object.
 static VALUE sedna_read(SC *conn, int strip_n)
@@ -251,6 +283,18 @@ static VALUE sedna_get_results(SC *conn)
 
 	return set;
 }
+
+static int sedna_blocking_execute(SQ *q)
+{
+	return SEexecute(q->conn, q->query);
+}
+
+#ifdef NON_BLOCKING
+static int sedna_non_blocking_execute(SQ *q)
+{
+	return rb_thread_blocking_region((void*)sedna_blocking_execute, q, RUBY_UBF_IO, NULL);
+}
+#endif
 
 // Enable or disable autocommit.
 static void sedna_autocommit(SC *conn, int value)
@@ -303,7 +347,6 @@ static VALUE cSedna_initialize(VALUE self, VALUE options)
 {
 	VALUE host_k, db_k, user_k, pw_k, host_v, db_v, user_v, pw_v;
 	char *host, *db, *user, *pw;
-	SC *conn = sedna_struct(self);
 
 	// Ensure the argument is a Hash.
 	Check_Type(options, T_HASH);
@@ -326,16 +369,17 @@ static VALUE cSedna_initialize(VALUE self, VALUE options)
 	rb_iv_set(self, IV_USER, rb_str_new2(user));
 	rb_iv_set(self, IV_PW, rb_str_new2(pw));
 
-	// Connect to the database.
-	sedna_connect(conn, host, db, user, pw);
-
-	// Initialize @autocommit to true.
-	rb_iv_set(self, IV_AUTOCOMMIT, Qtrue);
-
 #ifdef NON_BLOCKING
 	// Create a mutex if this build supports non-blocking queries.
 	rb_iv_set(self, IV_MUTEX, rb_mutex_new());
 #endif
+
+	// Connect to the database.
+	SCA c = { sedna_struct(self), host, db, user, pw };
+	sedna_connect(self, &c);
+
+	// Initialize @autocommit to true.
+	rb_iv_set(self, IV_AUTOCOMMIT, Qtrue);
 
 	return self;
 }
@@ -374,20 +418,16 @@ static VALUE cSedna_close(VALUE self)
  */
 static VALUE cSedna_reset(VALUE self)
 {
-	char *host, *db, *user, *pw;
 	SC *conn = sedna_struct(self);
 	
 	// First ensure the current connection is closed.
 	sedna_close(conn);
 
 	// Retrieve stored connection details.
-	host = STR2CSTR(rb_iv_get(self, IV_HOST));
-	db = STR2CSTR(rb_iv_get(self, IV_DB));
-	user = STR2CSTR(rb_iv_get(self, IV_USER));
-	pw = STR2CSTR(rb_iv_get(self, IV_PW));
+	SCA c = { conn, STR2CSTR(rb_iv_get(self, IV_HOST)), STR2CSTR(rb_iv_get(self, IV_DB)), STR2CSTR(rb_iv_get(self, IV_USER)), STR2CSTR(rb_iv_get(self, IV_PW)) };
 	
-	// Connect again.
-	sedna_connect(conn, host, db, user, pw);
+	// Connect to the database.
+	sedna_connect(self, &c);
 
 	// Always return nil if successful.
 	return Qnil;
@@ -533,22 +573,16 @@ static VALUE cSedna_connected(VALUE self)
  */
 static VALUE cSedna_execute(VALUE self, VALUE query)
 {
-	int res;
 	SC *conn = sedna_struct(self);
+
+	// Prepare query arguments.
+	SQ q = { conn, STR2CSTR(query) };
 
 	// Verify that the connection is OK.
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
-
-#ifdef NON_BLOCKING
-	// Non-blocking variant for >= 1.9.
-	SQ q = { conn, STR2CSTR(query) };
 	
-	// Synchronize across threads using this instance and execute.
-	res = rb_mutex_synchronize(rb_iv_get(self, IV_MUTEX), (void*)sedna_execute, (VALUE)&q);
-#else
-	// Blocking variant for < 1.9.
-	res = SEexecute(conn, STR2CSTR(query));
-#endif
+	// Execute query.
+	int res = SEDNA_EXECUTE(self, &q);
 
 	switch(res) {
 		case SEDNA_QUERY_SUCCEEDED:
