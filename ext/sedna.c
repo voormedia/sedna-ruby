@@ -491,6 +491,11 @@ static VALUE cSedna_reset(VALUE self)
  * If a connection cannot be initiated, a Sedna::ConnectionError is raised.
  * If the authentication fails, a Sedna::AuthenticationError is raised.
  *
+ * This method does not block other threads in Ruby 1.9.1+ -- connections that
+ * are initiated in different threads will be created concurrently. You can
+ * use Sedna.blocking? to verify if the extension supports non-blocking
+ * behaviour.
+ *
  * ==== Valid connection details keys
  *
  * * <tt>:host</tt> - Host name or IP address to which to connect to (defaults to +localhost+).
@@ -553,10 +558,11 @@ static VALUE cSedna_s_version(VALUE klass)
  * call-seq:
  *   Sedna.blocking? -> true or false
  *
- * Returns +true+ if querying the database with Sedna#execute will block other
- * threads. Returns +false+ if multiple queries can be run in different threads
- * simultaneously. \Sedna will not block other threads when compiled against
- * Ruby 1.9.
+ * Returns +true+ if connecting with Sedna.connect or querying the database
+ * with Sedna#execute will block other threads. Returns +false+ if multiple
+ * queries can be run or multiple connections can be made simultaneously in
+ * different threads. \Sedna will not block other threads (this method returns
+ * +false+) when compiled against Ruby 1.9.1+.
  */
 static VALUE cSedna_s_blocking(VALUE klass)
 {
@@ -591,7 +597,7 @@ static VALUE cSedna_connected(VALUE self)
  * query on a closed connection, a Sedna::ConnectionError will be raised. A
  * Sedna::Exception is raised if the query fails or is invalid.
  *
- * This method does not block other threads in Ruby 1.9 -- database queries that
+ * This method does not block other threads in Ruby 1.9.1+ -- database queries that
  * are run in different threads with different connections will run concurrently.
  * You can use Sedna.blocking? to verify if the extension supports non-blocking
  * behaviour. Database queries run from different threads, but on the same
