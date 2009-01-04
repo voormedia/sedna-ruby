@@ -1,3 +1,21 @@
+=== 0.4.0
+
+* Released on January 4th, 2009.
+* Added Sedna#reset, which closes the current connection and reconnects.
+* Added Sedna#connected?, which returns whether or not the current connection
+  is still active.
+* Sedna#transaction can now also be used without a block. Use the newly added
+  methods Sedna#commit and Sedna#rollback to finish such a declarative
+  transaction. Note that this style is not recommended if a transaction can
+  be wrapped in a block.
+* Sedna.connect no longer blocks other threads in Ruby 1.9.1+. Use Sedna.blocking?
+  to discover if support for non-blocking behaviour is enabled.
+* Strings in the result Array of Sedna#execute are now in UTF-8 encoding in
+  Ruby 1.9, rather than binary.
+* Fully tested in Ruby 1.8.5+ (including the latest version, 1.9.1 RC1).
+* Now also compiles with Ruby 1.9.0.x, but non-blocking behaviour is disabled
+  for these versions.
+
 === 0.3.0
 
 * Released on December 21st, 2008.
