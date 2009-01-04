@@ -83,14 +83,6 @@ struct SednaConnArgs {
 };
 typedef struct SednaConnArgs SCA;
 
-// Define whether or not non-blocking behaviour will be built in.
-#ifdef HAVE_RB_THREAD_BLOCKING_REGION
-	#define NON_BLOCKING 1
-	#define SEDNA_BLOCKING Qfalse
-#else
-	#define SEDNA_BLOCKING Qtrue
-#endif
-
 // Always create UTF-8 strings with STR_CAT, if supported (Ruby 1.9).
 #ifdef HAVE_RB_ENC_STR_BUF_CAT
 	#ifndef RUBY_ENCODING_H
@@ -101,24 +93,24 @@ typedef struct SednaConnArgs SCA;
 	#define STR_CAT(str, buf, bytes) rb_str_buf_cat(str, buf, bytes)
 #endif
 
-// Define execute function.
-#ifdef NON_BLOCKING
-	// Non-blocking variant for >= 1.9.
-	// Synchronize across threads using this instance and execute.
-	#define SEDNA_EXECUTE(self, q) rb_mutex_synchronize(rb_iv_get(self, IV_MUTEX), (void*)sedna_non_blocking_execute, (VALUE)q);
+// Define whether or not non-blocking behaviour will be built in.
+#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+	#define NON_BLOCKING 1
+	#define SEDNA_BLOCKING Qfalse
 #else
-	// Blocking variant for < 1.9.
-	#define SEDNA_EXECUTE(self, q) sedna_blocking_execute(q);
+	#define SEDNA_BLOCKING Qtrue
 #endif
 
-// Define connect function.
+// Define execute and connect functions.
 #ifdef NON_BLOCKING
-	// Non-blocking variant for >= 1.9.
+	// Non-blocking variants for >= 1.9.
 	// Synchronize across threads using this instance and execute.
 	#define SEDNA_CONNECT(self, c) rb_mutex_synchronize(rb_iv_get(self, IV_MUTEX), (void*)sedna_non_blocking_connect, (VALUE)c);
+	#define SEDNA_EXECUTE(self, q) rb_mutex_synchronize(rb_iv_get(self, IV_MUTEX), (void*)sedna_non_blocking_execute, (VALUE)q);
 #else
-	// Blocking variant for < 1.9.
+	// Blocking variants for < 1.9.
 	#define SEDNA_CONNECT(self, c) sedna_blocking_connect(c);
+	#define SEDNA_EXECUTE(self, q) sedna_blocking_execute(q);
 #endif
 
 // Ruby classes.
