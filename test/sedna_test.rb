@@ -536,6 +536,28 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
+  test "autocommit should be re-enabled after an explicit commit" do
+    Sedna.connect @@spec do |sedna|
+      sedna.autocommit = true
+      sedna.transaction
+      sedna.commit
+      assert_nothing_raised do
+        sedna.execute "<test/>"
+      end
+    end
+  end
+  
+  test "autocommit should be re-enabled after an explicit rollback" do
+    Sedna.connect @@spec do |sedna|
+      sedna.autocommit = true
+      sedna.transaction
+      sedna.rollback
+      assert_nothing_raised do
+        sedna.execute "<test/>"
+      end
+    end
+  end
+  
   test "autocommit should be re-enabled after a transaction was rolled back" do
     Sedna.connect @@spec do |sedna|
       sedna.autocommit = true
@@ -563,14 +585,13 @@ class SednaTest < Test::Unit::TestCase
   end
   
   # Test sedna.transaction.
+  test "transaction should return nil if called without block" do
+    assert_nil @@sedna.transaction
+    @@sedna.rollback
+  end
+
   test "transaction should return nil if committed" do
     assert_nil @@sedna.transaction(){}
-  end
-  
-  test "transaction should raise LocalJumpError if no block is given" do
-    assert_raises LocalJumpError do
-      @@sedna.transaction
-    end
   end
   
   test "transaction should be possible with autocommit" do
@@ -590,6 +611,14 @@ class SednaTest < Test::Unit::TestCase
     end
   end
   
+  test "transaction should fail with Sedna::TransactionError if another transaction is started before it is committed" do
+    @@sedna.transaction
+    assert_raises Sedna::TransactionError do
+      @@sedna.transaction
+    end
+    @@sedna.rollback
+  end
+
   test "transaction should commit if block given" do
     @@sedna.execute "drop document '#{__method__}'" rescue nil
     @@sedna.execute "create document '#{__method__}'"
@@ -634,7 +663,23 @@ class SednaTest < Test::Unit::TestCase
       end
     end
   end
-  
+ 
+  test "transaction should raise Sedna::TransactionError if it was committed inside the block" do
+    assert_raises Sedna::TransactionError do
+      @@sedna.transaction do
+        @@sedna.commit
+      end
+    end
+  end
+
+  test "transaction should raise Sedna::TransactionError if it was rolled back inside the block" do
+    assert_raises Sedna::TransactionError do
+      @@sedna.transaction do
+        @@sedna.rollback
+      end
+    end
+  end
+ 
   test "transaction should re-raise exceptions from inside block" do
     assert_raises Exception do
       @@sedna.transaction do
@@ -681,5 +726,76 @@ class SednaTest < Test::Unit::TestCase
         sedna.close
       end
     end
+  end
+  
+  # Test sedna.commit.
+  test "commit should commit transaction" do
+    @@sedna.execute "drop document '#{__method__}'" rescue nil
+    @@sedna.execute "create document '#{__method__}'"
+    
+    @@sedna.transaction
+    @@sedna.execute "update insert <test>test</test> into doc('#{__method__}')"
+    @@sedna.commit
+
+    assert_equal 1, @@sedna.execute("count(doc('#{__method__}')/test)").first.to_i
+    @@sedna.execute "drop document '#{__method__}'" rescue nil
+  end
+
+  test "commit should raise Sedna::Exception if connection is closed before transaction could be committed" do
+    sedna = Sedna.connect @@spec
+    sedna.transaction
+    sedna.execute "<test/>"
+    sedna.close
+    assert_raises Sedna::Exception do
+      sedna.commit
+    end
+  end
+  
+  test "commit should raise Sedna::TransactionError if no transaction is in progress" do
+    assert_raises Sedna::TransactionError do
+      @@sedna.commit
+    end
+  end
+  
+  test "commit should return nil" do
+    @@sedna.transaction
+    assert_nil @@sedna.commit
+  end
+  
+  # Test sedna.rollback.
+  test "rollback should roll back transaction" do
+    @@sedna.execute "drop document '#{__method__}'" rescue nil
+    @@sedna.execute "create document '#{__method__}'"
+
+    @@sedna.transaction
+    @@sedna.execute "update insert <test>test</test> into doc('#{__method__}')"
+    @@sedna.rollback
+
+    assert_equal 0, @@sedna.execute("count(doc('#{__method__}')/test)").first.to_i
+    @@sedna.execute "drop document '#{__method__}'" rescue nil
+  end
+  
+  test "rollback should roll back transaction if called inside transaction block" do
+    @@sedna.execute "drop document '#{__method__}'" rescue nil
+    @@sedna.execute "create document '#{__method__}'"
+
+    @@sedna.transaction do
+      @@sedna.execute "update insert <test>test</test> into doc('#{__method__}')"
+      @@sedna.rollback
+    end rescue nil
+
+    assert_equal 0, @@sedna.execute("count(doc('#{__method__}')/test)").first.to_i
+    @@sedna.execute "drop document '#{__method__}'" rescue nil
+  end
+  
+  test "rollback should fail silently if no transaction is in progress" do
+    assert_nothing_raised do
+      @@sedna.rollback
+    end
+  end
+  
+  test "rollback should return nil" do
+    @@sedna.transaction
+    assert_nil @@sedna.rollback
   end
 end

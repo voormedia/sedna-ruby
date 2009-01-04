@@ -296,24 +296,73 @@ static void sedna_autocommit(SC *conn, int value)
 }
 
 // Begin a transaction.
-static void sedna_tr_begin(SC *conn)
+static void sedna_begin(SC *conn)
 {
-	int res = SEbegin(conn);
+	int res;
+
+	// Disable autocommit mode.
+	SEDNA_AUTOCOMMIT_DISABLE(conn);
+	
+	// Start the transaction.
+	res = SEbegin(conn);
 	VERIFY_RES(SEDNA_BEGIN_TRANSACTION_SUCCEEDED, res, conn);
 }
 
 // Commit a transaction.
 static void sedna_tr_commit(SC *conn)
 {
-	int res = SEcommit(conn);
-	VERIFY_RES(SEDNA_COMMIT_TRANSACTION_SUCCEEDED, res, conn);
+	int res;
+
+	if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) {
+		// Commit if a transaction was in progres.
+		res = SEcommit(conn);
+		VERIFY_RES(SEDNA_COMMIT_TRANSACTION_SUCCEEDED, res, conn);
+	} else {
+		// If there is no current transaction, raise an error.
+		rb_raise(cSednaTrnError, "No transaction in progress, cannot commit.");
+	}
+}
+
+// Commit a transaction and reset autocommit mode.
+static void sedna_commit(SC *conn, VALUE self)
+{
+	int status;
+
+	// Roll back.
+	rb_protect((void*)sedna_tr_commit, (VALUE)conn, &status);
+
+	// Turn autocommit back on if it was set.
+	SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, IV_AUTOCOMMIT));
+
+	// Re-raise any exception.
+	if(status != 0) rb_jump_tag(status);
 }
 
 // Rollback a transaction.
 static void sedna_tr_rollback(SC *conn)
 {
-	int res = SErollback(conn);
-	VERIFY_RES(SEDNA_ROLLBACK_TRANSACTION_SUCCEEDED, res, conn);
+	int res;
+	
+	// Roll back if a transaction was in progress.
+	if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) {
+		res = SErollback(conn);
+		VERIFY_RES(SEDNA_ROLLBACK_TRANSACTION_SUCCEEDED, res, conn);
+	}
+}
+
+// Rollback a transaction and reset autocommit mode.
+static void sedna_rollback(SC *conn, VALUE self)
+{
+	int status;
+
+	// Roll back.
+	rb_protect((void*)sedna_tr_rollback, (VALUE)conn, &status);
+
+	// Turn autocommit back on if it was set.
+	SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, IV_AUTOCOMMIT));
+
+	// Re-raise any exception.
+	if(status != 0) rb_jump_tag(status);
 }
 
 
@@ -431,10 +480,11 @@ static VALUE cSedna_reset(VALUE self)
  *   Sedna.connect(details) {|sedna| ... } -> nil
  *
  * Establishes a new connection to a \Sedna XML database. Accepts a hash that
- * describes which database to \connect to.
+ * describes which database to connect to.
  *
  * If a block is given, the block is executed if a connection was successfully
- * established. The connection is closed at the end of the block. If called
+ * established. The connection is closed at the end of the block or if the
+ * stack is unwinded (if an exception is raised, for example). If called
  * without a block, a Sedna object that represents the connection is returned.
  * The connection should be closed by calling Sedna#close.
  *
@@ -443,19 +493,21 @@ static VALUE cSedna_reset(VALUE self)
  *
  * ==== Valid connection details keys
  *
- * * <tt>:host</tt> - Host name or IP address to which to \connect to (defaults to +localhost+).
- * * <tt>:database</tt> - Name of the database to \connect to (defaults to +test+).
+ * * <tt>:host</tt> - Host name or IP address to which to connect to (defaults to +localhost+).
+ * * <tt>:database</tt> - Name of the database to connect to (defaults to +test+).
  * * <tt>:username</tt> - User name to authenticate with (defaults to +SYSTEM+).
  * * <tt>:password</tt> - Password to authenticate with (defaults to +MANAGER+).
  *
  * ==== Examples
  *
  * Call without a block and close the connection afterwards.
+ *
  *   sedna = Sedna.connect(:database => "my_db", :host => "my_host")
  *   # Query the database and close afterwards.
  *   sedna.close
  *
  * Call with a block. The connection is closed automatically.
+ *
  *   Sedna.connect(:database => "my_db", :host => "my_host") do |sedna|
  *     # Query the database.
  *     # The connection is closed automatically.
@@ -535,7 +587,7 @@ static VALUE cSedna_connected(VALUE self)
  * Executes the given +query+ against a \Sedna database. Returns an array if the
  * given query is a select query. The elements of the array are strings that
  * correspond to each result in the result set. If the query is an update query
- * or a (bulk) load query, +nil+ is returned. When attempting to \execute a
+ * or a (bulk) load query, +nil+ is returned. When attempting to execute a
  * query on a closed connection, a Sedna::ConnectionError will be raised. A
  * Sedna::Exception is raised if the query fails or is invalid.
  *
@@ -548,12 +600,17 @@ static VALUE cSedna_connected(VALUE self)
  * ==== Examples
  *
  * Create a new document.
+ *
  *   sedna.execute "create document 'mydoc'"
  *     #=> nil
+ *
  * Update the newly created document with a root node.
+ *
  *   sedna.execute "update insert <message>Hello world!</message> into doc('mydoc')"
  *     #=> nil
+ *
  * Select a node in a document using XPath.
+ *
  *   sedna.execute "doc('mydoc')/message/text()"
  *     #=> ["Hello world!"]
  *
@@ -606,7 +663,7 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
  *
  * ==== Examples
  *
- * Create a new standalone document and retrieve it.
+ * Create a new document and retrieve its contents.
  *
  *   sedna.load_document "<my_document>Hello world!</my_document>", "my_doc"       
  *     #=> nil
@@ -695,83 +752,157 @@ static VALUE cSedna_autocommit_get(VALUE self)
 /*
  * call-seq:
  *   sedna.transaction { ... } -> nil
+ *   sedna.transaction -> nil
  *
- * Wraps the given block in a \transaction. If the block runs
- * completely, the \transaction is committed. If the stack is unwinded
- * prematurely, the \transaction is rolled back. This typically happens
- * when an \Exception is raised by calling +raise+ or a Symbol is thrown by
- * invoking +throw+. Note that Exceptions will not be rescued -- they will be
- * re-raised after rolling back the \transaction.
+ * Wraps the given block in a transaction. If the block runs completely, the
+ * transaction is committed. If the stack is unwinded prematurely, the
+ * transaction is rolled back. This typically happens when an exception is 
+ * raised by calling +raise+ or a Symbol is thrown by invoking +throw+. Note
+ * that exceptions will not be rescued -- they will be re-raised after rolling
+ * back the transaction.
  *
- * This method returns +nil+ if the \transaction is successfully committed
+ * This method returns +nil+ if the transaction is successfully committed
  * to the database. If the given block completes successfully, but the
- * \transaction fails to be committed, a Sedna::TransactionError will
- * be raised. 
+ * transaction fails to be committed, a Sedna::TransactionError will be raised.
  *
- * Transactions cannot be nested or executed simultaneously with the same connection.
- * Calling this method inside a block that is passed to another transaction, or
- * with the same connection in two concurrent threads will raise a
- * Sedna::TransactionError on the second invocation.
+ * Transactions cannot be nested or executed simultaneously with the same
+ * connection. Calling this method inside a block that is passed to another
+ * transaction, or with the same connection in two concurrent threads will
+ * raise a Sedna::TransactionError on the second invocation.
+ *
+ * If no block is given, this method only signals the beginning of a new
+ * transaction. A subsequent call to Sedna#commit or Sedna#rollback is required
+ * to end the transaction. Note that invoking this method with a block is the
+ * preferred way of executing transactions, because any exceptions that may be
+ * raised will automatically trigger a proper transaction rollback. Only call
+ * +commit+ and +rollback+ directly if you cannot use a block to wrap your
+ * transaction in.
  *
  * ==== Examples
  *
+ * Transactions are committed after the given block ends.
+ *
  *   sedna.transaction do
- *     count = sedna.execute "count(collection('my_col')/items)"  #=> 0
- *     sedna.execute "update insert <total>#{count}</total> into doc('my_doc')"
+ *     amount = 100
+ *     sedna.execute "update replace $balance in doc('my_account')/balance
+ *                    with <balance>{$balance - #{amount}}</balance>"
+ *     sedna.execute "update replace $balance in doc('your_account')/balance
+ *                    with <balance>{$balance + #{amount}}</balance>"
  *     # ...
  *   end
  *   # Transaction is committed.
  *
+ * Transactions are rolled back if something is thrown from inside the block.
+ *
  *   sedna.transaction do
- *     count = sedna.execute "count(collection('my_col')/items)"  #=> 0
- *     throw :no_items if count == 0
+ *     articles = sedna.execute "for $a in collection('articles')
+ *                               where $a/article/author = 'me' return $a"
+ *     throw :no_articles if articles.empty?
  *     # ... never get here
  *   end
  *   # Transaction is rolled back.
+ *
+ * Transactions are also rolled back if an exception is raised inside the block.
+ *
+ *   sedna.transaction do
+ *     amount = 100
+ *     sedna.execute "update replace $balance in doc('my_account')/balance
+ *                    with <balance>{$balance - #{amount}}</balance>"
+ *     new_balance = sedna.execute "doc('my_account')/balance"
+ *     raise "Insufficient funds" if new_balance.to_i < 0
+ *     # ... never get here
+ *   end
+ *   # Transaction is rolled back.
+ *
+ * If you really have to, you can also use transactions declaratively. Make
+ * sure to roll back the transaction if something goes wrong!
+ *
+ *   sedna.transaction
+ *   begin
+ *     amount = 100
+ *     sedna.execute "update replace $balance in doc('my_account')/balance
+ *                    with <balance>{$balance - #{amount}}</balance>"
+ *     sedna.execute "update replace $balance in doc('your_account')/balance
+ *                    with <balance>{$balance + #{amount}}</balance>"
+ *   rescue Exception
+ *     sedna.rollback
+ *   else
+ *     sedna.commit
+ *   end
  */
 static VALUE cSedna_transaction(VALUE self)
 {
 	int status;
 	SC *conn = sedna_struct(self);
 
-	// Disable autocommit mode.
-	SEDNA_AUTOCOMMIT_DISABLE(conn);
-	
 	// Begin the transaction.
-	sedna_tr_begin(conn);
+	sedna_begin(conn);
 
-	// Yield to the given block and protect it so we can always commit or rollback.
-	rb_protect(rb_yield, Qnil, &status);
+	if(rb_block_given_p()) {
+		// Yield to the given block and protect it so we can always commit or rollback.
+		rb_protect(rb_yield, Qnil, &status);
 
-	if(status == 0) {
-		if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) {
+		if(status == 0) {
 			// Attempt to commit if block completed successfully.
-			sedna_tr_commit(conn);
-
-			// Turn autocommit back on if it was set.
-			SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, IV_AUTOCOMMIT));
+			sedna_commit(conn, self);
 		} else {
-			// Turn autocommit back on if it was set.
-			SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, IV_AUTOCOMMIT));
+			// Stack has unwinded, attempt to roll back!
+			sedna_rollback(conn, self);
 
-			// If there is no current transaction, raise an error.
-			rb_raise(cSednaTrnError, "The transaction was prematurely ended, but no error was encountered. Did you rescue an exception or reset the connection inside the transaction?");
+			// Re-raise any exception or re-throw whatever was thrown.
+			rb_jump_tag(status);
 		}
-	} else {
-		// Stack has unwinded, attempt to roll back!
-		if(SEtransactionStatus(conn) == SEDNA_TRANSACTION_ACTIVE) sedna_tr_rollback(conn);
-
-		// Turn autocommit back on if it was set.
-		SWITCH_SEDNA_AUTOCOMMIT(conn, rb_iv_get(self, IV_AUTOCOMMIT));
-
-		// Re-raise any exception or re-throw whatever was thrown.
-		rb_jump_tag(status);
 	}
 
 	// Always return nil if successful.
 	return Qnil;
 }
 
+/*
+ * call-seq:
+ *   sedna.commit -> nil
+ * 
+ * Commits a currently active transaction. Only use this method if you are
+ * specifying a transaction declaratively. Invoking Sedna#transaction with a
+ * block will automatically commit the transaction if the block finishes
+ * successfully.
+ *
+ * This method will raise a Sedna::TransactionError if no transaction is in
+ * progress when it is called.
+ */
+static VALUE cSedna_commit(VALUE self)
+{
+	SC *conn = sedna_struct(self);
+
+	// Attempt to commit.
+	sedna_commit(conn, self);
+
+	// Always return nil if successful.
+	return Qnil;
+}
+
+/*
+ * call-seq:
+ *   sedna.rollback -> nil
+ * 
+ * Rolls back a currently active transaction. Only use this method if you are
+ * specifying a transaction declaratively. Invoking Sedna#transaction with a
+ * block will automatically roll back the transaction if an exception is raised
+ * or if the stack is unwinded for whatever reason.
+ *
+ * This method will do nothing if no transaction is in progress when it is
+ * called.
+ */
+static VALUE cSedna_rollback(VALUE self)
+{
+	SC *conn = sedna_struct(self);
+
+	// Attempt to roll back.
+	sedna_rollback(conn, self);
+
+	// Always return nil if successful.
+	return Qnil;
+}
 
 // Initialize the extension ==============================================
 
@@ -807,6 +938,8 @@ void Init_sedna()
 	rb_define_method(cSedna, "close", cSedna_close, 0);
 	rb_define_method(cSedna, "reset", cSedna_reset, 0);
 	rb_define_method(cSedna, "transaction", cSedna_transaction, 0);
+	rb_define_method(cSedna, "commit", cSedna_commit, 0);
+	rb_define_method(cSedna, "rollback", cSedna_rollback, 0);
 	rb_define_method(cSedna, "execute", cSedna_execute, 1);
 	rb_define_undocumented_alias(cSedna, "query", "execute");
 	rb_define_method(cSedna, "load_document", cSedna_load_document, -1);
@@ -816,7 +949,7 @@ void Init_sedna()
 	 *
 	 * When autocommit is set to +true+ (default), database queries can be run
 	 * without explicitly wrapping them in a transaction. Each query that is not
-	 * part of a \transaction is automatically committed to the database.
+	 * part of a transaction is automatically committed to the database.
 	 * Explicit transactions in auto-commit mode will still be committed
 	 * atomically.
 	 * 
