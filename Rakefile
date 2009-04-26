@@ -57,7 +57,7 @@ end
 
 gem_spec = Gem::Specification.new do |s|
   s.name = "sedna"
-  s.version = "0.4.0"
+  s.version = "0.5.0"
 
   s.summary = "Sedna XML DBMS client library."
   s.description = %{Ruby extension that provides a client library for the Sedna XML DBMS, making use of the official C driver of the Sedna project.}
@@ -84,8 +84,8 @@ Rake::GemPackageTask.new gem_spec do |p|
   p.need_zip = true
 end
 
-Rake::RDocTask.new { |rdoc|
+Rake::RDocTask.new do |rdoc|
   rdoc.rdoc_dir = 'doc'
   rdoc.title = RDOC_TITLE
   rdoc.rdoc_files.include *RDOC_FILES
-}
+end

@@ -32,7 +32,7 @@ limitations under the License.
 
 === Current version
 
-The current version of this library is 0.4.0. This release is a <b>beta version</b>.
+The current version of this library is 0.5.0. This is a <b>stable release</b>.
 For a complete overview all recent and previous changes, see CHANGES.
 
 === Requirements
@@ -51,7 +51,7 @@ library as a rubygem.
 
   % gem install sedna
 
-If the library or header files of the S<i></i>edna C driver are located at non-default
+If the library or header files of the \Sedna C driver are located at non-default
 locations, you can specify these locations by adding the <tt>--with-sedna-lib</tt>
 or <tt>--with-sedna-include</tt> options when installing.
 
