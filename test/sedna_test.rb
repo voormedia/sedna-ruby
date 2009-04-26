@@ -798,4 +798,57 @@ class SednaTest < Test::Unit::TestCase
     @@sedna.transaction
     assert_nil @@sedna.rollback
   end
+  
+  # Test Sedna::Exception#code
+  test "code should return error code after connection failure" do
+    code = false
+    begin
+      Sedna.connect @@spec.merge(:username => "non-existent-user")
+    rescue Sedna::AuthenticationError => error
+      code = error.code
+    end
+    assert_equal "SE3053", code
+  end
+
+  test "code should return error code after trying to execute invalid statements" do
+    code = false
+    begin
+      @@sedna.execute "INVALID"
+    rescue Sedna::Exception => error
+      code = error.code
+    end
+    assert_equal "XPDY0002", code
+  end
+
+  test "code should return error code after trying to start a transaction within a transaction" do
+    code = false
+    @@sedna.transaction
+    begin
+      @@sedna.transaction
+    rescue Sedna::TransactionError => error
+      code = error.code
+    end
+    @@sedna.commit
+    assert_equal "SE4612", code
+  end
+  
+  test "code should return error code after trying to load an invalid document" do
+    code = false
+    begin
+      @@sedna.load_document "<doc/> this is an invalid document", "some_doc"
+    rescue Sedna::Exception => error
+      code = error.code
+    end
+    assert_equal "SE2005", code
+  end
+
+  test "code should be nil if error is raised from inside the ruby client" do
+    code = false
+    begin
+      @@sedna.commit
+    rescue Sedna::TransactionError => error
+      code = error.code
+    end
+    assert_nil code
+  end
 end

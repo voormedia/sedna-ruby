@@ -62,6 +62,7 @@
 #define IV_PW "@password"
 #define IV_AUTOCOMMIT "@autocommit"
 #define IV_MUTEX "@mutex"
+#define IV_EXC_CODE "@code"
 
 // Define a shorthand for the common SednaConnection structure.
 typedef struct SednaConnection SC;
@@ -129,43 +130,57 @@ static VALUE cSednaTrnError;
 // called that generated the error and should be passed as res.
 static void sedna_err(SC *conn, int res)
 {
-	VALUE exception;
+	VALUE exc_class, exc;
 	const char *msg;
-	char *err, *details, *p;
+	char *code, *err, *details, *p, exc_message[BUFSIZ];
 
 	switch(res) {
 		case SEDNA_AUTHENTICATION_FAILED:
-			exception = cSednaAuthError; break;
+			exc_class = cSednaAuthError; break;
 		case SEDNA_OPEN_SESSION_FAILED:
 		case SEDNA_CLOSE_SESSION_FAILED:
-			exception = cSednaConnError; break;
+			exc_class = cSednaConnError; break;
 		case SEDNA_BEGIN_TRANSACTION_FAILED:
 		case SEDNA_ROLLBACK_TRANSACTION_FAILED:
 		case SEDNA_COMMIT_TRANSACTION_FAILED:
-			exception = cSednaTrnError; break;
+			exc_class = cSednaTrnError; break;
 		case SEDNA_ERROR:
 		default:
-			exception = cSednaException;
+			exc_class = cSednaException;
 	}
 
 	msg = SEgetLastErrorMsg(conn);
+	// SEgetLastErrorCode(conn) is useless, because it varies if the order of
+	// errors changes. The actual code is a string which is defined in error_codes.h
+	// in the Sedna source code.
+    code = strstr(msg, "ERROR ");
 	err = strstr(msg, "\n");
 	details = strstr(err, "\nDetails: ");
 
+    if(code != NULL) {
+        code += 6; // Advance beyond "ERROR "
+        if((p = strstr(code, "\n")) != NULL) strncpy(p, "\0", 1);
+    }
+
 	if(err != NULL) {
-		err++;
+		err++; // Advance beyond "\n"
 		if((p = strstr(err, "\n")) != NULL) strncpy(p, "\0", 1);
 	} else {
 		err = "Unknown error.";
 	}
 
 	if(details != NULL) {
-		details += 10;
+		details += 10; // Advance beyond "\nDetails: "
 		while((p = strstr(details, "\n")) != NULL) strncpy(p, " ", 1);
-		rb_raise(exception, "%s (%s)", err, details);
+        snprintf(exc_message, BUFSIZ, "%s (%s)", err, details);
 	} else {
-		rb_raise(exception, "%s", err);
+        snprintf(exc_message, BUFSIZ, "%s", err);
 	}
+    exc = rb_exc_new2(exc_class, exc_message);
+    if(code != NULL) {
+        rb_iv_set(exc, IV_EXC_CODE, rb_str_new2(code));
+    }
+    rb_exc_raise(exc);
 }
 
 // Retrieve the SednaConnection struct from the Ruby Sedna object obj.
@@ -982,7 +997,10 @@ void Init_sedna()
 
 	/*
 	 * Generic exception class for errors. All errors raised by the \Sedna
-	 * client library are of type Sedna::Exception.
+	 * client library are of type Sedna::Exception. The original error code
+	 * can be retrieved with the +code+ attribute. A list of all error codes
+	 * is defined in the \Sedna source:
+	 * http://modis.ispras.ru/src/sedna/kernel/common/errdbg/error.codes
 	 *
 	 * === Subclasses
 	 *
@@ -1000,6 +1018,13 @@ void Init_sedna()
 	 *   Raised when a transaction could not be committed.
 	 */
 	cSednaException = rb_define_class_under(cSedna, "Exception", rb_eStandardError);
+	/*
+     * Returns the error code associated with this exception. This code is a string
+     * that can be used to accurately identify which error has occurred. Some
+     * errors are thrown by the Ruby client rather than the C bindings. In these
+     * cases, the error code is +nil+.
+     */
+    rb_define_attr(cSednaException, "code", 1, 0);
 
 	/*
 	 * Sedna::AuthenticationError is a subclass of Sedna::Exception, and is
