@@ -88,4 +88,5 @@ Rake::RDocTask.new do |rdoc|
   rdoc.rdoc_dir = 'doc'
   rdoc.title = RDOC_TITLE
   rdoc.rdoc_files.include *RDOC_FILES
+  rdoc.main = "README"
 end
