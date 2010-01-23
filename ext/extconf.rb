@@ -25,20 +25,35 @@ if RUBY_VERSION < "1.8"
 end
 
 driver = "/driver/c"
-default_driver_dirs = ["/usr/local/sedna#{driver}", "/opt/sedna#{driver}"]
+default_driver_dirs = ["/usr/local/sedna#{driver}", "/opt/sedna#{driver}", File.expand_path("~/sedna#{driver}")]
 default_include_dirs = ["/usr/include", "/usr/include/sedna"] + default_driver_dirs
 default_lib_dirs = ["/usr/lib", "/usr/lib/sedna"] + default_driver_dirs
+
+# If user specified directories.
 idir, ldir = dir_config "sedna", nil, nil
-idir ||= default_include_dirs
-ldir ||= default_lib_dirs
+if idir.nil? or ldir.nil?
+  idir, ldir = default_include_dirs, default_lib_dirs
+else
+  ldir = File.expand_path(ldir.sub("/lib", driver)) unless ldir.nil?
+  idir = [File.expand_path(idir), ldir] unless idir.nil?
+end
 
 if not find_library "sedna", "SEconnect", *ldir
   $stderr.write %{
 ==============================================================================
 Could not find libsedna.
-* Did you install Sedna somewhere else than in /usr/local/sedna or /opt/sedna?
-  Call extconf.rb with --with-sedna-lib=/path to override default location.
+
+* Did you install Sedna in a non default location? Call extconf.rb
+  with --with-sedna-dir=/path/to/sedna to override it. With rubygems:
+
+    gem install sedna -- --with-sedna-dir=/path/to/sedna
+
 * Did you install a version of Sedna not compiled for your architecture?
+  The standard Sedna distribution of Sedna is compiled for i386. If your
+  platform is x86_64, and your Ruby was compiled as x86_64, you must
+  recompile Sedna for x86_64 as well. Download the sources at:
+  
+    http://modis.ispras.ru/sedna/download.html
 ==============================================================================
 }
   exit 2
@@ -48,8 +63,12 @@ if not find_header "libsedna.h", *idir or not find_header "sp_defs.h", *idir
   $stderr.write %{
 ==============================================================================
 Could not find header file(s) for libsedna.
-* Did you install Sedna somewhere else than in /usr/local/sedna or /opt/sedna?
-  Call extconf.rb with --with-sedna-include=/path to override default location.
+
+* Did you install Sedna in a non default location? Call extconf.rb
+  with --with-sedna-dir=/path/to/sedna to override it. With rubygems:
+
+    gem install sedna -- --with-sedna-dir=/path/to/sedna
+
 ==============================================================================
 }
   exit 3
