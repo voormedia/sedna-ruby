@@ -1,3 +1,9 @@
+=== 0.5.1
+
+* Released on January 23th, 2010.
+* Added ~/sedna/include and ~/sedna/driver/c to the default search path when
+  installing the gem.
+
 === 0.5.0
 
 * Released on April 26th, 2009.

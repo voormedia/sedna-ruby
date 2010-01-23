@@ -16,7 +16,7 @@ at http://modis.ispras.ru/sedna
 
 Author: Rolf Timmermans (r.timmermans <i>at</i> voormedia.com)
 
-Copyright 2008, 2009 Voormedia B.V.
+Copyright 2008-2010 Voormedia B.V.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ limitations under the License.
 
 === Current version
 
-The current version of this library is 0.5.0. This is a <b>stable release</b>.
+The current version of this library is 0.5.1. This is a <b>stable release</b>.
 For a complete overview all recent and previous changes, see CHANGES.
 
 === Requirements
@@ -52,10 +52,10 @@ library as a rubygem.
   % gem install sedna
 
 If the library or header files of the \Sedna C driver are located at non-default
-locations, you can specify these locations by adding the <tt>--with-sedna-lib</tt>
-or <tt>--with-sedna-include</tt> options when installing.
+locations, you can specify these locations by adding the <tt>--with-sedna-bin</tt>
+options when installing.
 
-  % gem install sedna -- --with-sedna-lib=/path/to/sedna/lib --with-sedna-include=/path/to/sedna/include
+  % gem install sedna -- --with-sedna-bin=/path/to/sedna
 
 === Usage
 
