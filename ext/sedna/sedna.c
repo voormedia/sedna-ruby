@@ -70,17 +70,17 @@ typedef struct SednaConnection SC;
 // Define a struct for database queries.
 struct SednaQuery {
 	void *conn;
-	void *query;
+	char *query;
 };
 typedef struct SednaQuery SQ;
 
 // Define a struct for database connection arguments.
 struct SednaConnArgs {
 	void *conn;
-	void *host;
-	void *db;
-	void *user;
-	void *pw;
+	char *host;
+	char *db;
+	char *user;
+	char *pw;
 };
 typedef struct SednaConnArgs SCA;
 
@@ -166,7 +166,7 @@ static void sedna_err(SC *conn, int res)
 		err++; // Advance beyond "\n"
 		if((p = strstr(err, "\n")) != NULL) strncpy(p, "\0", 1);
 	} else {
-		err = "Unknown error.";
+		err = strdup("Unknown error.");
 	}
 
 	if(details != NULL) {
@@ -414,16 +414,16 @@ static VALUE cSedna_initialize(VALUE self, VALUE options)
 	pw_k = ID2SYM(rb_intern("password"));
 
 	// Get the connection details or set them to the default values if not given.
-	if(NIL_P(host_v = rb_hash_aref(options, host_k))) host = DEFAULT_HOST; else host = STR2CSTR(host_v);
-	if(NIL_P(db_v = rb_hash_aref(options, db_k))) db = DEFAULT_DB; else db = STR2CSTR(db_v);
-	if(NIL_P(user_v = rb_hash_aref(options, user_k))) user = DEFAULT_USER; else user = STR2CSTR(user_v);
-	if(NIL_P(pw_v = rb_hash_aref(options, pw_k))) pw = DEFAULT_PW; else pw = STR2CSTR(pw_v);
+	if(NIL_P(host_v = rb_hash_aref(options, host_k))) host = strdup(DEFAULT_HOST); else host = StringValuePtr(host_v);
+	if(NIL_P(db_v   = rb_hash_aref(options, db_k  ))) db   = strdup(DEFAULT_DB);   else db =   StringValuePtr(db_v);
+	if(NIL_P(user_v = rb_hash_aref(options, user_k))) user = strdup(DEFAULT_USER); else user = StringValuePtr(user_v);
+	if(NIL_P(pw_v   = rb_hash_aref(options, pw_k  ))) pw   = strdup(DEFAULT_PW);   else pw =   StringValuePtr(pw_v);
 	
 	// Save all connection details to instance variables.
 	rb_iv_set(self, IV_HOST, rb_str_new2(host));
-	rb_iv_set(self, IV_DB, rb_str_new2(db));
+	rb_iv_set(self, IV_DB,   rb_str_new2(db));
 	rb_iv_set(self, IV_USER, rb_str_new2(user));
-	rb_iv_set(self, IV_PW, rb_str_new2(pw));
+	rb_iv_set(self, IV_PW,   rb_str_new2(pw));
 
 #ifdef NON_BLOCKING
 	// Create a mutex if this build supports non-blocking queries.
@@ -474,13 +474,19 @@ static VALUE cSedna_close(VALUE self)
  */
 static VALUE cSedna_reset(VALUE self)
 {
+	VALUE host_v, db_v, user_v, pw_v;
 	SC *conn = sedna_struct(self);
 	
 	// First ensure the current connection is closed.
 	sedna_close(conn);
 
 	// Retrieve stored connection details.
-	SCA c = { conn, STR2CSTR(rb_iv_get(self, IV_HOST)), STR2CSTR(rb_iv_get(self, IV_DB)), STR2CSTR(rb_iv_get(self, IV_USER)), STR2CSTR(rb_iv_get(self, IV_PW)) };
+	host_v = rb_iv_get(self, IV_HOST);
+	db_v   = rb_iv_get(self, IV_DB);
+	user_v = rb_iv_get(self, IV_USER);
+	pw_v   = rb_iv_get(self, IV_PW);
+
+	SCA c = { conn, StringValuePtr(host_v), StringValuePtr(db_v), StringValuePtr(user_v), StringValuePtr(pw_v) };
 	
 	// Connect to the database.
 	sedna_connect(self, &c);
@@ -646,7 +652,7 @@ static VALUE cSedna_execute(VALUE self, VALUE query)
 	SC *conn = sedna_struct(self);
 
 	// Prepare query arguments.
-	SQ q = { conn, STR2CSTR(query) };
+	SQ q = { conn, StringValuePtr(query) };
 
 	// Verify that the connection is OK.
 	if(SEconnectionStatus(conn) != SEDNA_CONNECTION_OK) rb_raise(cSednaConnError, "Connection is closed.");
@@ -709,14 +715,14 @@ static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 
 	// 2 mandatory arguments, 1 optional.
 	rb_scan_args(argc, argv, "21", &document, &doc_name, &col_name);
-	doc_name_c = STR2CSTR(doc_name);
-	col_name_c = NIL_P(col_name) ? NULL : STR2CSTR(col_name);
+	doc_name_c = StringValuePtr(doc_name);
+	col_name_c = NIL_P(col_name) ? NULL : StringValuePtr(col_name);
 
 	if(TYPE(document) == T_FILE) {
 		// If the document is an IO object...
 		while(!NIL_P(buf = rb_funcall(document, rb_intern("read"), 1, INT2NUM(LOAD_BUF_LEN)))) {
 			// ...read from it until we reach EOF and load the data.
-			res = SEloadData(conn, STR2CSTR(buf), RSTRING_LEN(buf), doc_name_c, col_name_c);
+			res = SEloadData(conn, StringValuePtr(buf), RSTRING_LEN(buf), doc_name_c, col_name_c);
 			VERIFY_RES(SEDNA_DATA_CHUNK_LOADED, res, conn);
 		}
 
@@ -730,7 +736,7 @@ static VALUE cSedna_load_document(int argc, VALUE *argv, VALUE self)
 		if(RSTRING_LEN(document) == 0) rb_raise(cSednaException, "Document is empty.");
 
 		// Load the data.
-		res = SEloadData(conn, STR2CSTR(document), RSTRING_LEN(document), doc_name_c, col_name_c);
+		res = SEloadData(conn, StringValuePtr(document), RSTRING_LEN(document), doc_name_c, col_name_c);
 		VERIFY_RES(SEDNA_DATA_CHUNK_LOADED, res, conn);
 	}
 
