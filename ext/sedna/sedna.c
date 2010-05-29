@@ -153,14 +153,14 @@ static void sedna_err(SC *conn, int res)
 	// SEgetLastErrorCode(conn) is useless, because it varies if the order of
 	// errors changes. The actual code is a string which is defined in error_codes.h
 	// in the Sedna source code.
-    code = strstr(msg, "ERROR ");
+	code = strstr(msg, "ERROR ");
 	err = strstr(msg, "\n");
 	details = strstr(err, "\nDetails: ");
 
-    if(code != NULL) {
-        code += 6; // Advance beyond "ERROR "
-        if((p = strstr(code, "\n")) != NULL) strncpy(p, "\0", 1);
-    }
+	if(code != NULL) {
+		code += 6; // Advance beyond "ERROR "
+		if((p = strstr(code, "\n")) != NULL) strncpy(p, "\0", 1);
+	}
 
 	if(err != NULL) {
 		err++; // Advance beyond "\n"
@@ -172,15 +172,15 @@ static void sedna_err(SC *conn, int res)
 	if(details != NULL) {
 		details += 10; // Advance beyond "\nDetails: "
 		while((p = strstr(details, "\n")) != NULL) strncpy(p, " ", 1);
-        snprintf(exc_message, BUFSIZ, "%s (%s)", err, details);
+		snprintf(exc_message, BUFSIZ, "%s (%s)", err, details);
 	} else {
-        snprintf(exc_message, BUFSIZ, "%s", err);
+		snprintf(exc_message, BUFSIZ, "%s", err);
 	}
-    exc = rb_exc_new2(exc_class, exc_message);
-    if(code != NULL) {
-        rb_iv_set(exc, IV_EXC_CODE, rb_str_new2(code));
-    }
-    rb_exc_raise(exc);
+	exc = rb_exc_new2(exc_class, exc_message);
+	if(code != NULL) {
+		rb_iv_set(exc, IV_EXC_CODE, rb_str_new2(code));
+	}
+	rb_exc_raise(exc);
 }
 
 // Retrieve the SednaConnection struct from the Ruby Sedna object obj.
@@ -1018,13 +1018,14 @@ void Init_sedna()
 	 *   Raised when a transaction could not be committed.
 	 */
 	cSednaException = rb_define_class_under(cSedna, "Exception", rb_eStandardError);
+
 	/*
-     * Returns the error code associated with this exception. This code is a string
-     * that can be used to accurately identify which error has occurred. Some
-     * errors are thrown by the Ruby client rather than the C bindings. In these
-     * cases, the error code is +nil+.
-     */
-    rb_define_attr(cSednaException, "code", 1, 0);
+	 * Returns the error code associated with this exception. This code is a string
+	 * that can be used to accurately identify which error has occurred. Some
+	 * errors are thrown by the Ruby client rather than the C bindings. In these
+	 * cases, the error code is +nil+.
+	 */
+	rb_define_attr(cSednaException, "code", 1, 0);
 
 	/*
 	 * Sedna::AuthenticationError is a subclass of Sedna::Exception, and is
