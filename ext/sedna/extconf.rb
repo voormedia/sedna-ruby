@@ -46,7 +46,7 @@ if idir.nil? or ldir.nil?
   system "cd #{driver_dir} && make clean && make"
   
   # Link to bundled driver.
-  idir = ldir = driver_dir
+  idir = ldir = [driver_dir]
 else
   # Use user-specified driver.
   ldir = File.expand_path(ldir.sub("/lib", DRIVER)) unless ldir.nil?

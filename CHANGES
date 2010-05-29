@@ -4,6 +4,7 @@
 * Bundled Sedna driver from version 3.3.55 (protocol version 3.0). The bundled
   driver is now used by default to simplify installation.
 * Fixed build errors on Mac OS X 10.6.
+* Unit test compatibility with version 3.3.
 
 === 0.5.1
 
