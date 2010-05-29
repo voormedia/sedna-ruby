@@ -69,7 +69,6 @@ gem_spec = Gem::Specification.new do |s|
   s.homepage = "http://sedna.rubyforge.org/"
   s.rubyforge_project = "sedna"
 
-  s.extensions << "ext/libsedna/extconf.rb"
   s.extensions << "ext/sedna/extconf.rb"
   s.files = FileList["Rakefile", "ext/**/extconf.rb", "ext/**/*.c", "test/**/*.rb"].to_a
   s.require_path = "lib"
