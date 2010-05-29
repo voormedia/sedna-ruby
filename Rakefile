@@ -70,7 +70,8 @@ gem_spec = Gem::Specification.new do |s|
   s.rubyforge_project = "sedna"
 
   s.extensions << "ext/sedna/extconf.rb"
-  s.files = FileList["Rakefile", "ext/**/extconf.rb", "ext/**/*.c", "test/**/*.rb"].to_a
+  s.files = (FileList["Rakefile", "ext/**/extconf.rb", "ext/**/*.c", "test/**/*.rb"] + FileList["vendor/sedna/**/*"] -
+    FileList["vendor/sedna/**/{*.exp,*.so,*.o,*.a,*.bb,*.bbg,*.da,*.map,*.pdb,vc*.idb,*.SUP,*.d,*.d.*,generated}"]).to_a
   s.require_path = "lib"
 
   s.has_rdoc = true
