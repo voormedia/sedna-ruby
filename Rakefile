@@ -75,7 +75,7 @@ gem_spec = Gem::Specification.new do |s|
 
   s.has_rdoc = true
   s.extra_rdoc_files = RDOC_FILES
-  s.rdoc_options << "--title" << RDOC_TITLE << "--main" << "README"
+  s.rdoc_options << "--title" << RDOC_TITLE << "--main" << "README.rdoc"
   
   s.test_files = FileList["test/**/*_test.rb"].to_a
 end
