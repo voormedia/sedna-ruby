@@ -45,6 +45,7 @@ desc "Remove build products"
 task :clobber_build do
   sh "rm -f ext/**/*.{so,o,log,bundle}"
   sh "rm -f ext/**/Makefile"
+  sh "rm -rf ext/**/conftest.*"
   system "cd vendor/sedna/driver/c && make clean"  
 end
 
@@ -100,6 +101,7 @@ namespace :driver do
     target = "vendor/sedna"
     %x(rm -rf #{target} && mkdir -p #{target}/driver && mkdir -p #{target}/kernel)
 
+    %x(cp -r #{source}/{AUTHORS,COPYRIGHT,LICENSE} #{target})
     %x(cp -r #{source}/{depend.sed,ver,Makefile.include,Makefile.platform,Makefile.pseudolib} #{target})
     %x(cp -r #{source}/driver/c #{target}/driver/c)
     %x(cp -r #{source}/kernel/common #{target}/kernel/common)
