@@ -1,10 +1,11 @@
-=== 0.5.2
+=== 0.6.0
 
 * Released on May 29th, 2010.
 * Bundled Sedna driver from version 3.3.55 (protocol version 3.0). The bundled
   driver is now used by default to simplify installation.
 * Fixed build errors on Mac OS X 10.6.
-* Unit test compatibility with version 3.3.
+* Unit test compatibility with Sedna 3.3.
+* Fully tested in Ruby 1.8.6+ (including 1.9.2-preview2) and Rubinius 1.0.
 
 === 0.5.1
 
