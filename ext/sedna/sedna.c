@@ -401,7 +401,8 @@ static VALUE cSedna_s_new(VALUE klass)
  */
 static VALUE cSedna_initialize(VALUE self, VALUE options)
 {
-	VALUE host_k, db_k, user_k, pw_k, host_v, db_v, user_v, pw_v;
+	VALUE host_k, db_k, user_k, pw_k,
+	      host_v, db_v, user_v, pw_v;
 	char *host, *db, *user, *pw;
 
 	// Ensure the argument is a Hash.
@@ -409,9 +410,9 @@ static VALUE cSedna_initialize(VALUE self, VALUE options)
 	
 	// Store the symbols of the valid hash keys.
 	host_k = ID2SYM(rb_intern("host"));
-	db_k = ID2SYM(rb_intern("database"));
+	db_k   = ID2SYM(rb_intern("database"));
 	user_k = ID2SYM(rb_intern("username"));
-	pw_k = ID2SYM(rb_intern("password"));
+	pw_k   = ID2SYM(rb_intern("password"));
 
 	// Get the connection details or set them to the default values if not given.
 	if(NIL_P(host_v = rb_hash_aref(options, host_k))) host = strdup(DEFAULT_HOST); else host = StringValuePtr(host_v);
