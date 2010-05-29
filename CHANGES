@@ -1,3 +1,10 @@
+=== 0.5.2
+
+* Released on May 29th, 2010.
+* Bundled Sedna driver from version 3.3.55 (protocol version 3.0). The bundled
+  driver is now used by default to simplify installation.
+* Fixed build errors on Mac OS X 10.6.
+
 === 0.5.1
 
 * Released on January 23th, 2010.

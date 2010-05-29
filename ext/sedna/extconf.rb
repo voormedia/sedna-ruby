@@ -19,23 +19,48 @@
 
 require "mkmf"
 
+# Fail for old Rubies.
 if RUBY_VERSION < "1.8"
   puts "This library requires ruby 1.8."
   exit 1
 end
 
-driver = "/driver/c"
-default_driver_dirs = ["/usr/local/sedna#{driver}", "/opt/sedna#{driver}", File.expand_path("~/sedna#{driver}")]
-default_include_dirs = ["/usr/include", "/usr/include/sedna"] + default_driver_dirs
-default_lib_dirs = ["/usr/lib", "/usr/lib/sedna"] + default_driver_dirs
+def set_arch(arch)
+  flags = "-arch #{arch}"
+  $CFLAGS.gsub!(/-arch\s+\S+ /, "")
+  $LDFLAGS.gsub!(/-arch\s+\S+ /, "")
+  CONFIG['LDSHARED'].gsub!(/-arch\s+\S+ /, "")
 
-# If user specified directories.
+  $CFLAGS << " " << flags
+  $LDFLAGS << " " << flags
+  CONFIG["LDSHARED"] << " " << flags
+end
+
+DRIVER = "/driver/c"
+
 idir, ldir = dir_config "sedna", nil, nil
 if idir.nil? or ldir.nil?
-  idir, ldir = default_include_dirs, default_lib_dirs
+  driver_dir = File.expand_path("#{File.dirname(__FILE__)}/../../vendor/sedna/#{DRIVER}")
+
+  # Compile bundled driver.
+  system "cd #{driver_dir} && make clean && make"
+  
+  # Link to bundled driver.
+  idir = ldir = driver_dir
 else
-  ldir = File.expand_path(ldir.sub("/lib", driver)) unless ldir.nil?
+  # Use user-specified driver.
+  ldir = File.expand_path(ldir.sub("/lib", DRIVER)) unless ldir.nil?
   idir = [File.expand_path(idir), ldir] unless idir.nil?
+end
+
+# Fix multiple arch flags on Mac OS X.
+if RUBY_PLATFORM.include?("darwin")
+  ldir.each do |libdir|
+    if File.exists?("#{libdir}/libsedna.a") and %x(which lipo && lipo -info #{libdir}/libsedna.a) =~ /architecture: (.+)$/
+      set_arch($1) unless $1 == "i386"
+      break
+    end
+  end
 end
 
 if not find_library "sedna", "SEconnect", *ldir
@@ -72,19 +97,6 @@ Could not find header file(s) for libsedna.
 ==============================================================================
 }
   exit 3
-end
-
-if CONFIG["arch"] =~ /x86_64/i and File.exist?(f = $LIBPATH.first + File::Separator + "libsedna.a")
-  if system "/usr/bin/objdump --reloc \"#{f}\" 2>/dev/null | grep R_X86_64_32S >/dev/null && echo"
-    $stderr.write %{==============================================================================
-Library libsedna.a was statically compiled for a 64-bit platform as position-
-dependent code. It will not be possible to create a Ruby shared library with
-this Sedna library. Recompile the library as position-independent code by
-passing the -fPIC option to gcc.
-==============================================================================
-}
-    exit 4
-  end
 end
 
 have_func "rb_thread_blocking_region"

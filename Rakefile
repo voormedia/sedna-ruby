@@ -35,16 +35,17 @@ end
 
 desc "Build the Ruby extension"
 task :build do
-  Dir.chdir "ext"
+  Dir.chdir "ext/sedna"
   ruby "extconf.rb"
   sh "make"
-  Dir.chdir ".."
+  Dir.chdir "../.."
 end
 
 desc "Remove build products"
 task :clobber_build do
-  sh "rm -f ext/*.{so,o,log}"
-  sh "rm -f ext/Makefile"
+  sh "rm -f ext/**/*.{so,o,log,bundle}"
+  sh "rm -f ext/**/Makefile"
+  system "cd vendor/sedna/driver/c && make clean"  
 end
 
 desc "Force a rebuild of the Ruby extension"
@@ -67,8 +68,9 @@ gem_spec = Gem::Specification.new do |s|
   s.homepage = "http://sedna.rubyforge.org/"
   s.rubyforge_project = "sedna"
 
-  s.extensions << "ext/extconf.rb"
-  s.files = FileList["Rakefile", "ext/extconf.rb", "ext/**/*.c", "test/**/*.rb"].to_a
+  s.extensions << "ext/libsedna/extconf.rb"
+  s.extensions << "ext/sedna/extconf.rb"
+  s.files = FileList["Rakefile", "ext/**/extconf.rb", "ext/**/*.c", "test/**/*.rb"].to_a
   s.require_path = "lib"
 
   s.has_rdoc = true
@@ -89,4 +91,23 @@ Rake::RDocTask.new do |rdoc|
   rdoc.title = RDOC_TITLE
   rdoc.rdoc_files.include *RDOC_FILES
   rdoc.main = "README"
+end
+
+namespace :driver do
+  task :update do
+    exit if ENV["SOURCE"].nil?
+    source = File.expand_path(File.join(File.dirname(__FILE__), ENV["SOURCE"]))
+    target = "vendor/sedna"
+    %x(rm -rf #{target} && mkdir -p #{target}/driver && mkdir -p #{target}/kernel)
+
+    %x(cp -r #{source}/{depend.sed,ver,Makefile.include,Makefile.platform,Makefile.pseudolib} #{target})
+    %x(cp -r #{source}/driver/c #{target}/driver/c)
+    %x(cp -r #{source}/kernel/common #{target}/kernel/common)
+
+    u_h = File.read("#{target}/kernel/common/u/u.h")
+    u_h.gsub!("#include <ucontext.h>", "")
+    File.open("#{target}/kernel/common/u/u.h", "w") do |f|
+      f.write u_h
+    end
+  end
 end

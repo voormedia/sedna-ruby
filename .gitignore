@@ -1,4 +1,6 @@
+conftest.*
 *.log
+*.rbc
 ext/*.o
 ext/*.so
 ext/Makefile

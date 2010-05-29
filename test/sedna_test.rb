@@ -21,7 +21,7 @@
 # This file contains the test suite to verify the client library is working
 # correctly.
 
-$:.unshift(File.dirname(__FILE__) + '/../ext')
+$:.unshift(File.dirname(__FILE__) + '/../ext/sedna')
 
 require 'test/unit'
 require 'sedna'
@@ -345,7 +345,7 @@ class SednaTest < Test::Unit::TestCase
     @@sedna.execute "drop document '#{__method__}'" rescue nil
     begin
       thread = Thread.new do
-        @@sedna.execute "create document '#{__method__}'"
+        @@sedna.execute "create document '#{__method__}'" rescue nil
       end
       thread.raise
       thread.join
@@ -384,7 +384,7 @@ class SednaTest < Test::Unit::TestCase
 
   test "load_document should create document in given collection" do
     col = "test_collection"
-    doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
+    doc = "<?xml version=\"1.0\" standalone=\"yes\"?>\n<document>\n  <node/>\n</document>"
     @@sedna.execute "create collection '#{col}'" rescue nil
     @@sedna.execute "drop document '#{__method__}' in collection '#{col}'" rescue nil
     @@sedna.load_document doc, __method__.to_s, col
@@ -394,7 +394,7 @@ class SednaTest < Test::Unit::TestCase
   end
 
   test "load_document should create standalone document if collection is unspecified" do
-    doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
+    doc = "<?xml version=\"1.0\" standalone=\"yes\"?>\n<document>\n  <node/>\n</document>"
     @@sedna.execute "drop document '#{__method__}'" rescue nil
     @@sedna.load_document doc, __method__.to_s
     assert_equal doc, @@sedna.execute("doc('#{__method__}')").first
@@ -402,7 +402,7 @@ class SednaTest < Test::Unit::TestCase
   end
   
   test "load_document should create standalone document if collection is nil" do
-    doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>\n <node/>\n</document>"
+    doc = "<?xml version=\"1.0\" standalone=\"yes\"?>\n<document>\n  <node/>\n</document>"
     @@sedna.execute "drop document '#{__method__}'" rescue nil
     @@sedna.load_document doc, __method__.to_s, nil
     assert_equal doc, @@sedna.execute("doc('#{__method__}')").first
@@ -448,8 +448,8 @@ class SednaTest < Test::Unit::TestCase
     end
   end
 
-  test "load_document should create document if given document is IO object" do
-    doc = "<?xml version=\"1.0\" standalone=\"yes\"?><document>" << ("\n <some_very_often_repeated_node/>" * 800) << "\n</document>"
+  test "load_document should create document if given document is io object" do
+    doc = "<?xml version=\"1.0\" standalone=\"yes\"?>\n<document>" << ("\n  <some_very_often_repeated_node/>" * 800) << "\n</document>"
     p_out, p_in = IO.pipe
     p_in.write doc
     p_in.close
@@ -696,7 +696,7 @@ class SednaTest < Test::Unit::TestCase
       end
     rescue Sedna::Exception => exc
     end
-    assert_equal "It is a dynamic error if evaluation of an expression relies on some part of the dynamic context that has not been assigned a value.", exc.message
+    assert_match /It is a dynamic error if evaluation of an expression relies on some part of the dynamic context that has not been assigned a value/, exc.message
   end
   
   test "transaction should raise Sedna::TransactionError if called from different threads on same connection" do
