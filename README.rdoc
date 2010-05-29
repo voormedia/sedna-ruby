@@ -1,18 +1,18 @@
-= \Sedna XML database client library
+= S<i></i>edna XML database client library
 
 This library provides a Ruby client for <i>Sedna</i>, an open-source, native XML
 database system. The client is a Ruby extension that uses the official C
 driver that is shipped as part of the S<i></i>edna distribution.
 
-\Sedna provides a full range of core database services -- persistent storage,
+S<i></i>edna provides a full range of core database services -- persistent storage,
 ACID transactions, security, indices, hot backup. Flexible XML processing
 facilities include W3C XQuery implementation, tight integration of XQuery with
 full-text search facilities and a node-level update language.
 
-For more information about the \Sedna XML database system, see the project page
+For more information about the S<i></i>edna XML database system, see the project page
 at http://modis.ispras.ru/sedna
 
-=== About the client library
+== About the client library
 
 Author: Rolf Timmermans (r.timmermans <i>at</i> voormedia.com)
 
@@ -30,20 +30,20 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
-=== Current version
+== Current version
 
 The current version of this library is 0.6.0. This is a <b>stable release</b>.
-For a complete overview all recent and previous changes, see CHANGES.
+For a complete overview all recent and previous changes, see CHANGES.rdoc.
 
-=== Requirements
+== Requirements
 
-The \Sedna client library ships with a copy of the official C driver, which
+The S<i></i>edna client library ships with a copy of the official C driver, which
 will be built for your platform automatically when you install it.
 
 The library has been tested with Ruby 1.8.6 and above, including Ruby 1.9.1 and
 Ruby 1.9.2.
 
-=== Installation
+== Installation
 
 Install the Ruby client library as a gem.
 
@@ -56,7 +56,7 @@ option when installing.
 
   % gem install sedna -- --with-sedna-dir=/path/to/sedna
 
-=== Usage
+== Usage
 
 After installation, +require+ the sedna library in order to start using it.
 
