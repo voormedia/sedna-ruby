@@ -4,7 +4,7 @@ This library provides a Ruby client for <i>Sedna</i>, an open-source, native XML
 database system. The client is a Ruby extension that uses the official C
 driver that is shipped as part of the S<i></i>edna distribution.
 
-<b>Browse the Ruby API documentation online at http://sedna.rubyforge.org/doc/</b>
+<b>Browse the Ruby API documentation online at http://sedna.rubyforge.org/doc</b>
 
 S<i></i>edna provides a full range of core database services -- persistent storage,
 ACID transactions, security, indices, hot backup. Flexible XML processing
@@ -12,7 +12,7 @@ facilities include W3C XQuery implementation, tight integration of XQuery with
 full-text search facilities and a node-level update language.
 
 For more information about the S<i></i>edna XML database system, see the project page
-at http://modis.ispras.ru/sedna/
+at http://modis.ispras.ru/sedna
 
 == About the client library
 
