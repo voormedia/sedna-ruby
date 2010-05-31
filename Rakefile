@@ -61,9 +61,8 @@ gem_spec = Gem::Specification.new do |s|
   s.name = "sedna"
   s.version = "0.6.0"
 
-  s.summary = "Sedna XML DBMS client library."
-  s.description = %{Ruby extension that provides a client library for the Sedna XML DBMS, making use of the official C driver of the Sedna project.}
-  s.requirements = %{Sedna XML DBMS C driver (library and headers).}
+  s.summary = "Sedna XML database client."
+  s.description = %{Ruby client API for the Sedna XML database system, based on the offical C driver.}
   s.author = "Rolf Timmermans"
   s.email = "r.timmermans@voormedia.com"
   s.homepage = "http://sedna.rubyforge.org/"
