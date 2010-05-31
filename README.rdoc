@@ -109,3 +109,5 @@ of the transaction will be rolled back.
     # If the second statement fails, the first will be rolled back. Only if
     # both statements succeed will the changes become permanent.
   end
+
+<b>For detailed usage information, see http://sedna.rubyforge.org/doc</b>
