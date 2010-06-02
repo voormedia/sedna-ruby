@@ -101,12 +101,12 @@ namespace :driver do
     %x(rm -rf #{target} && mkdir -p #{target}/driver && mkdir -p #{target}/kernel)
 
     %x(cp -r #{source}/{AUTHORS,COPYRIGHT,LICENSE} #{target})
-    %x(cp -r #{source}/{depend.sed,ver,Makefile.include,Makefile.platform} #{target})
+    %x(cp -r #{source}/{depend.sed,ver,Makefile.include,Makefile.platform,Makefile.pseudolib} #{target})
     %x(cp -r #{source}/driver/c #{target}/driver/c)
     %x(cp -r #{source}/kernel/common #{target}/kernel/common)
 
     u_h = File.read("#{target}/kernel/common/u/u.h")
-    u_h.gsub!("#include <ucontext.h>", "")
+    u_h.gsub!("#include <ucontext.h>", "#include <sys/ucontext.h>")
     File.open("#{target}/kernel/common/u/u.h", "w") do |f|
       f.write u_h
     end

@@ -199,7 +199,7 @@
 #include <signal.h>
 
 #ifndef __cygwin__
-
+#include <sys/ucontext.h>
 #endif
 
 #include <setjmp.h>
